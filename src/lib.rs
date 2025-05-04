@@ -5,4 +5,7 @@
 #![warn(rust_2018_idioms)]
 
 pub mod extract;
+pub mod structs;
+
 pub use crate::extract::*;
+pub use crate::structs::*;
