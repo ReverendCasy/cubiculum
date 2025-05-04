@@ -7,6 +7,28 @@ pub struct Interval {
     name: Option<String>
 }
 
+impl Interval {
+    pub fn new() -> Interval {
+        Interval { chrom: None, start: None, end: None, name: None }
+    }
+
+    pub fn update_name(&mut self, name: String) {
+        self.name = Some(name);
+    }
+
+    pub fn update_chrom(&mut self, chrom: String) {
+        self.chrom = Some(chrom);
+    }
+
+    pub fn update_start(&mut self, start: u64) {
+        self.start = Some(start);
+    }
+
+    pub fn update_end(&mut self, end: u64) {
+        self.end = Some(end);
+    }
+}
+
 pub struct BedEntry{
     format: Option<u8>,
     chrom: Option<String>,
@@ -80,20 +102,20 @@ impl BedEntry{
 }
 
 pub trait Coordinates{
-    fn start(&self) -> Option<u64>;
+    fn start(&self) -> Option<&u64>;
 
-    fn end(&self) -> Option<u64>;
+    fn end(&self) -> Option<&u64>;
 
     fn length(&self) -> Option<u64>;
 }
 
 impl Coordinates for Interval {
-    fn start(&self) -> Option<u64> {
-        self.start
+    fn start(&self) -> Option<&u64> {
+        self.start.as_ref()
     }
 
-    fn end(&self) -> Option<u64> {
-        self.end
+    fn end(&self) -> Option<&u64> {
+        self.end.as_ref()
     }
 
     fn length(&self) -> Option<u64> {
