@@ -103,3 +103,16 @@ impl Coordinates for Interval {
         }
     }
 }
+
+pub trait Named {
+    fn name(&self) -> Option<&str>;
+}
+
+impl Named for Interval {
+    fn name(&self) -> Option<&str> {
+        match self.name.as_ref() {
+            Some(x) => Some(x),
+            None => None
+        }
+    }
+}
