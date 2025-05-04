@@ -1,13 +1,13 @@
 /// Contains data on storage structures for annotation manipulations in Cubiculum and associated packages
 
-struct Interval {
+pub struct Interval {
     chrom: Option<String>,
     start: Option<u64>,
     end: Option<u64>,
     name: Option<String>
 }
 
-struct BedEntry{
+pub struct BedEntry{
     format: Option<u8>,
     chrom: Option<String>,
     thin_start: Option<u64>,
