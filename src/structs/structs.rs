@@ -1,6 +1,6 @@
 /// Contains data on storage structures for annotation manipulations in Cubiculum and associated packages
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Interval {
     chrom: Option<String>,
     start: Option<u64>,
@@ -29,7 +29,7 @@ impl Interval {
         self.end = Some(end);
     }
 }
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BedEntry{
     format: Option<u8>,
     chrom: Option<String>,

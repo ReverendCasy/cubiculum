@@ -1,7 +1,8 @@
 use num_traits::CheckedSub;
 use std::cmp::{Ord, PartialOrd, min, max};
+use std::ops::Sub;
 
-use crate::structs::{Coordinates, Named, Interval};
+use crate::structs::structs::{Coordinates, Interval};
 
 /// Assess intersection between the two numeric intervals
 /// 
@@ -42,15 +43,19 @@ pub fn merge<T>(inter1: T, inter2: T) -> Option<Interval>
 where
     T: Coordinates
 {
-    let s1 = inter1.start().expect("Cannot merge intervals with undefined coordinates");
-    let e1 = inter1.end().expect("Cannot merge intervals with undefined coordinates");
-    let s2 = inter2.start().expect("Cannot merge intervals with undefined coordinates");
-    let e2 = inter2.end().expect("Cannot merge intervals with undefined coordinates");
-    if intersection(s1, e1, s2, e2) == 0 {return None};
-    let merged: Interval = Interval::new();
-    let merged_start = min(s1, s2);
-    merged.update_start(merged_start);
-    let merged_end = max(e1, e2);
-    merged.update_end();
-    merged
+    let s1 = *inter1.start().expect("Cannot merge intervals with undefined coordinates");
+    let e1 = *inter1.end().expect("Cannot merge intervals with undefined coordinates");
+    let s2 = *inter2.start().expect("Cannot merge intervals with undefined coordinates");
+    let e2 = *inter2.end().expect("Cannot merge intervals with undefined coordinates");
+    match intersection(s1, e1, s2, e2) {
+        None => {return None},
+        Some(_) => {
+            let mut merged: Interval = Interval::new();
+            let merged_start = min(s1, s2);
+            merged.update_start(merged_start);
+            let merged_end = max(e1, e2);
+            merged.update_end(merged_end);
+            return Some(merged);
+        }
+    };
 }
