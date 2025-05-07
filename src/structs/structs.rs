@@ -250,6 +250,8 @@ impl BedEntry{
 }
 
 pub trait Coordinates{
+    fn chrom(&self) -> Option<&String>;
+
     fn start(&self) -> Option<&u64>;
 
     fn end(&self) -> Option<&u64>;
@@ -258,6 +260,10 @@ pub trait Coordinates{
 }
 
 impl Coordinates for Interval {
+    fn chrom(&self) -> Option<&String> {
+        self.chrom.as_ref()
+    }
+
     fn start(&self) -> Option<&u64> {
         self.start.as_ref()
     }
@@ -275,6 +281,10 @@ impl Coordinates for Interval {
 }
 
 impl Coordinates for BedEntry {
+    fn chrom(&self) -> Option<&String> {
+        self.chrom.as_ref()
+    }
+    
     fn start(&self) -> Option<&u64> {
         self.thin_start.as_ref()
     }
