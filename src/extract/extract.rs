@@ -54,11 +54,11 @@ If you want to parse an incomplete BED entry, consider BED9 format instead"
     }
 
     let chrom: String = data[0].to_string();
-    let thin_start: u32 = data[1]
-        .parse::<u32>()
+    let thin_start: u64 = data[1]
+        .parse::<u64>()
         .expect("ThickStart is not a valid positive integer");
-    let thin_end: u32 = data[2]
-        .parse::<u32>()
+    let thin_end: u64 = data[2]
+        .parse::<u64>()
         .expect("ThickEnd is not a valid positive integer");
     assert!(thin_start <= thin_end);
 
@@ -81,14 +81,14 @@ If you want to parse an incomplete BED entry, consider BED9 format instead"
         return Some(BedEntry::bed6(chrom, thin_start, thin_end, name, score, strand));
     }
 
-    let thick_start: u32 = data[6]
-        .parse::<u32>()
+    let thick_start: u64 = data[6]
+        .parse::<u64>()
         .expect("thinStart is not a valid positive integer");
     if thick_start < thin_start {
         panic!("thickStart value ({}) cannot be smaller than thinStart ({})", thick_start, thin_start)
     }
-    let thick_end: u32 = data[7]
-        .parse::<u32>()
+    let thick_end: u64 = data[7]
+        .parse::<u64>()
         .expect("thinEnd is not a valid positive integer");
     if thick_end > thin_end {
         panic!("thickEnd value ({}) cannot be larger than thinEnd ({})", thick_end, thin_end)
@@ -108,27 +108,27 @@ If you want to parse an incomplete BED entry, consider BED9 format instead"
         )
     }
 
-    let ex_num: u32 = data[9]
-        .parse::<u32>()
+    let ex_num: u64 = data[9]
+        .parse::<u64>()
         .expect("Exon number is not a valid positive integer");
-    let exon_sizes: Vec<u32> = data[10]
+    let exon_sizes: Vec<u64> = data[10]
         .split(',')
         .filter(|x|
             !x.is_empty()
         )
         .map(|x|
-            x.parse::<u32>().expect("Invalid exon size value")
+            x.parse::<u64>().expect("Invalid exon size value")
         )
-        .collect::<Vec<u32>>();
-    let exon_starts: Vec<u32> = data[11]
+        .collect::<Vec<u64>>();
+    let exon_starts: Vec<u64> = data[11]
         .split(',') 
         .filter(|x|
             !x.is_empty()
         )
         .map(|x|
-            x.parse::<u32>().expect("Invalid exon start position")
+            x.parse::<u64>().expect("Invalid exon start position")
         )
-        .collect::<Vec<u32>>();
+        .collect::<Vec<u64>>();
     return Some(
         BedEntry::bed12(
             chrom, thin_start, thin_end, name, score, strand, thick_start, thick_end, rgb, 
@@ -174,25 +174,25 @@ pub fn bed_to_fraction(
         panic!("Error: File contains improperly formatted lines. Make sure all lines in the file are in BED12 format");
     }
     let chrom: &str = data[0];
-    let mut thin_start: u32 = data[1]
-        .parse::<u32>()
+    let mut thin_start: u64 = data[1]
+        .parse::<u64>()
         .expect("ThickStart is not a valid positive integer");
-    let mut thin_end: u32 = data[2]
-        .parse::<u32>()
+    let mut thin_end: u64 = data[2]
+        .parse::<u64>()
         .expect("ThickEnd is not a valid positive integer");
     assert!(thin_start <= thin_end);
     let name: &str = data[3];
     let score: &str = data[4];
     let strand_line: &str = data[5];
     let strand: bool = strand_line == "+";
-    let mut thick_start: u32 = data[6]
-        .parse::<u32>()
+    let mut thick_start: u64 = data[6]
+        .parse::<u64>()
         .expect("thinStart is not a valid positive integer");
     if thick_start < thin_start {
         panic!("thickStart value ({}) cannot be smaller than thinStart ({})", thick_start, thin_start)
     }
-    let mut thick_end: u32 = data[7]
-        .parse::<u32>()
+    let mut thick_end: u64 = data[7]
+        .parse::<u64>()
         .expect("thinEnd is not a valid positive integer");
     if thick_end > thin_end {
         panic!("thickEnd value ({}) cannot be larger than thinEnd ({})", thick_end, thin_end)
@@ -201,27 +201,27 @@ pub fn bed_to_fraction(
         panic!("thickStart value ({}) cannot be larger than thickEnd ({})", thick_start, thick_end)
     }
     let rgb: &str = data[8];
-    let ex_num: u32 = data[9]
-        .parse::<u32>()
+    let ex_num: u64 = data[9]
+        .parse::<u64>()
         .expect("Exon number is not a valid positive integer");
-    let exon_sizes: Vec<u32> = data[10]
+    let exon_sizes: Vec<u64> = data[10]
         .split(',')
         .filter(|x|
             !x.is_empty()
         )
         .map(|x|
-            x.parse::<u32>().expect("Invalid exon size value")
+            x.parse::<u64>().expect("Invalid exon size value")
         )
-        .collect::<Vec<u32>>();
-    let exon_starts: Vec<u32> = data[11]
+        .collect::<Vec<u64>>();
+    let exon_starts: Vec<u64> = data[11]
         .split(',') 
         .filter(|x|
             !x.is_empty()
         )
         .map(|x|
-            x.parse::<u32>().expect("Invalid exon start position")
+            x.parse::<u64>().expect("Invalid exon start position")
         )
-        .collect::<Vec<u32>>();
+        .collect::<Vec<u64>>();
 
     // create shortcuts to control behaviour in UTR-targeted modes
     // the definition of 5' and 3' depends on the strand
@@ -232,7 +232,7 @@ pub fn bed_to_fraction(
     let report_coding: bool = !noncoding & (mode == BedFractionMode::Cds || mode == BedFractionMode::All);
 
     // infer the new sequence's start position
-    let mut seq_start: u32 = match mode {
+    let mut seq_start: u64 = match mode {
         BedFractionMode::Cds => thick_start, // will not change down the road
         // "3utr" => thick_end, // can be further set to the first 3'-UTR exon start
         _ => thin_start 
@@ -242,16 +242,16 @@ pub fn bed_to_fraction(
     };
 
     // create storage objects for updated block coordinates
-    let mut upd_block_starts: Vec<u32> = Vec::new();
-    let mut upd_block_sizes: Vec<u32> = Vec::new();
+    let mut upd_block_starts: Vec<u64> = Vec::new();
+    let mut upd_block_sizes: Vec<u64> = Vec::new();
 
-    let range: ops::Range<u32>= if intron {0..ex_num-1} else {0..ex_num};
+    let range: ops::Range<u64>= if intron {0..ex_num-1} else {0..ex_num};
     if range.is_empty() {return None};
     for i in range {
         let i: usize = i as usize;
 
-        let block_start: u32 = exon_starts[i] + thin_start;
-        let block_end: u32 = block_start + exon_sizes[i];
+        let block_start: u64 = exon_starts[i] + thin_start;
+        let block_end: u64 = block_start + exon_sizes[i];
 
         // first, check if the current block lies entirely within UTR
         // save block coordinates if respective mode is set, continue otherwise
@@ -305,8 +305,8 @@ pub fn bed_to_fraction(
         }
 
         // for blocks overlapping with the coding sequence, assess their boundaries
-        let upd_block_start: u32 = cmp::max(block_start, thick_start);
-        let upd_block_end: u32 = cmp::min(block_end, thick_end);
+        let upd_block_start: u64 = cmp::max(block_start, thick_start);
+        let upd_block_end: u64 = cmp::min(block_end, thick_end);
 
         // for 'cds' mode, save the updated coordinates
         if mode == BedFractionMode::Cds {
@@ -370,9 +370,9 @@ pub fn bed_to_fraction(
     if bed6 {
         let mut bed6_line: String = String::new();
         for i in 0..upd_block_count {
-            let block_start: u32 = seq_start + upd_block_starts[i];
-            let block_end: u32 = block_start + upd_block_sizes[i];
-            let block_num: u32 = if strand {i as u32 + 1} else {(upd_block_count - i) as u32};
+            let block_start: u64 = seq_start + upd_block_starts[i];
+            let block_end: u64 = block_start + upd_block_sizes[i];
+            let block_num: u64 = if strand {i as u64 + 1} else {(upd_block_count - i) as u64};
             let out_line: String = format!(
                 "{}\t{}\t{}\t{}\t{}\t{}",
                 chrom, block_start, block_end, name, block_num, strand_line

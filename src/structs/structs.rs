@@ -3,8 +3,8 @@
 #[derive(Debug)]
 pub struct Interval {
     chrom: Option<String>,
-    start: Option<u32>,
-    end: Option<u32>,
+    start: Option<u64>,
+    end: Option<u64>,
     name: Option<String>
 }
 
@@ -21,11 +21,11 @@ impl Interval {
         self.chrom = Some(chrom);
     }
 
-    pub fn update_start(&mut self, start: u32) {
+    pub fn update_start(&mut self, start: u64) {
         self.start = Some(start);
     }
 
-    pub fn update_end(&mut self, end: u32) {
+    pub fn update_end(&mut self, end: u64) {
         self.end = Some(end);
     }
 }
@@ -33,17 +33,17 @@ impl Interval {
 pub struct BedEntry{
     format: Option<u8>,
     chrom: Option<String>,
-    thin_start: Option<u32>,
-    thin_end: Option<u32>,
+    thin_start: Option<u64>,
+    thin_end: Option<u64>,
     name: Option<String>,
     score: Option<String>,
     strand: Option<bool>,
-    thick_start: Option<u32>,
-    thick_end: Option<u32>,
+    thick_start: Option<u64>,
+    thick_end: Option<u64>,
     rgb: Option<String>,
-    exon_num: Option<u32>,
-    exon_sizes: Option<Vec<u32>>,
-    exon_starts: Option<Vec<u32>>
+    exon_num: Option<u64>,
+    exon_sizes: Option<Vec<u64>>,
+    exon_starts: Option<Vec<u64>>
 }
 
 impl BedEntry{
@@ -65,7 +65,7 @@ impl BedEntry{
         }
     }
 
-    pub fn bed3(chrom: String, start: u32, end: u32) -> BedEntry {
+    pub fn bed3(chrom: String, start: u64, end: u64) -> BedEntry {
         BedEntry{
             format: Some(3), 
             chrom: Some(chrom), 
@@ -83,7 +83,7 @@ impl BedEntry{
         }
     }
 
-    pub fn bed4(chrom: String, start: u32, end: u32, name: String) -> BedEntry {
+    pub fn bed4(chrom: String, start: u64, end: u64, name: String) -> BedEntry {
         BedEntry{
             format: Some(4), 
             chrom: Some(chrom), 
@@ -101,7 +101,7 @@ impl BedEntry{
         }
     }
 
-    pub fn bed5(chrom: String, start: u32, end: u32, name: String, score: String) -> BedEntry {
+    pub fn bed5(chrom: String, start: u64, end: u64, name: String, score: String) -> BedEntry {
         BedEntry{
             format: Some(5), 
             chrom: Some(chrom), 
@@ -119,7 +119,7 @@ impl BedEntry{
         }
     }
 
-    pub fn bed6(chrom: String, start: u32, end: u32, name: String, score: String, strand: bool) -> BedEntry {
+    pub fn bed6(chrom: String, start: u64, end: u64, name: String, score: String, strand: bool) -> BedEntry {
         BedEntry{
             format: Some(6), 
             chrom: Some(chrom), 
@@ -138,8 +138,8 @@ impl BedEntry{
     }
 
     pub fn bed8(
-        chrom: String, start: u32, end: u32, name: String, score: String, strand: bool, 
-        thick_start: u32, thick_end: u32 
+        chrom: String, start: u64, end: u64, name: String, score: String, strand: bool, 
+        thick_start: u64, thick_end: u64 
     ) -> BedEntry {
         BedEntry{
             format: Some(8), 
@@ -159,8 +159,8 @@ impl BedEntry{
     }
 
     pub fn bed9(
-        chrom: String, start: u32, end: u32, name: String, score: String, strand: bool, 
-        thick_start: u32, thick_end: u32, rgb: String
+        chrom: String, start: u64, end: u64, name: String, score: String, strand: bool, 
+        thick_start: u64, thick_end: u64, rgb: String
     ) -> BedEntry {
         BedEntry{
             format: Some(9), 
@@ -180,9 +180,9 @@ impl BedEntry{
     }
 
     pub fn bed12(
-        chrom: String, start: u32, end: u32, name: String, score: String, strand: bool, 
-        thick_start: u32, thick_end: u32, rgb: String, 
-        exon_num: u32, exon_sizes: Vec<u32>, exon_starts: Vec<u32>
+        chrom: String, start: u64, end: u64, name: String, score: String, strand: bool, 
+        thick_start: u64, thick_end: u64, rgb: String, 
+        exon_num: u64, exon_sizes: Vec<u64>, exon_starts: Vec<u64>
     ) -> BedEntry {
         BedEntry{
             format: Some(12), 
@@ -209,7 +209,7 @@ impl BedEntry{
             Some(x) => {x},
             None => {return None}
         };
-        let thin_start: u32 = match self.thin_start {
+        let thin_start: u64 = match self.thin_start {
             Some(x) => {x},
             None => {return None}
         };
@@ -231,8 +231,8 @@ impl BedEntry{
         };
         let mut blocks: Vec<BedEntry> = Vec::with_capacity(ex_num);
         for i in 0..ex_num {
-            let start: u32 = thin_start + self.exon_starts.as_ref().unwrap()[i];
-            let end: u32 = start + self.exon_sizes.as_ref().unwrap()[i];
+            let start: u64 = thin_start + self.exon_starts.as_ref().unwrap()[i];
+            let end: u64 = start + self.exon_sizes.as_ref().unwrap()[i];
             blocks.push(
                 BedEntry::bed6(
                     chrom.to_string(),
@@ -250,23 +250,23 @@ impl BedEntry{
 }
 
 pub trait Coordinates{
-    fn start(&self) -> Option<&u32>;
+    fn start(&self) -> Option<&u64>;
 
-    fn end(&self) -> Option<&u32>;
+    fn end(&self) -> Option<&u64>;
 
-    fn length(&self) -> Option<u32>;
+    fn length(&self) -> Option<u64>;
 }
 
 impl Coordinates for Interval {
-    fn start(&self) -> Option<&u32> {
+    fn start(&self) -> Option<&u64> {
         self.start.as_ref()
     }
 
-    fn end(&self) -> Option<&u32> {
+    fn end(&self) -> Option<&u64> {
         self.end.as_ref()
     }
 
-    fn length(&self) -> Option<u32> {
+    fn length(&self) -> Option<u64> {
         match (self.start, self.end) {
             (Some(a), Some(b)) => {Some(a + b)},
             _ => None
@@ -275,15 +275,15 @@ impl Coordinates for Interval {
 }
 
 impl Coordinates for BedEntry {
-    fn start(&self) -> Option<&u32> {
+    fn start(&self) -> Option<&u64> {
         self.thin_start.as_ref()
     }
 
-    fn end(&self) -> Option<&u32> {
+    fn end(&self) -> Option<&u64> {
         self.thin_end.as_ref()
     }
 
-    fn length(&self) -> Option<u32> {
+    fn length(&self) -> Option<u64> {
         match (self.thin_start, self.thin_end) {
             (Some(a), Some(b)) => {Some(a + b)},
             _ => None
