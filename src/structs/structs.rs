@@ -284,7 +284,7 @@ impl Coordinates for BedEntry {
     fn chrom(&self) -> Option<&String> {
         self.chrom.as_ref()
     }
-    
+
     fn start(&self) -> Option<&u64> {
         self.thin_start.as_ref()
     }
@@ -306,6 +306,15 @@ pub trait Named {
 }
 
 impl Named for Interval {
+    fn name(&self) -> Option<&str> {
+        match self.name.as_ref() {
+            Some(x) => Some(x),
+            None => None
+        }
+    }
+}
+
+impl Named for BedEntry{
     fn name(&self) -> Option<&str> {
         match self.name.as_ref() {
             Some(x) => Some(x),
