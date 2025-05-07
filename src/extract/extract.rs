@@ -8,30 +8,10 @@
 
 #[allow(dead_code)]
 
-// use std::any;
 use std::cmp;
-// use std::io;
 use std::ops;
-// use std::vec::Vec;
 
-// fn print_type<T>(_:&T) {
-//     println!("Type: {}", any::type_name::<T>());
-// }
-
-
-//pub struct BedEntry {
-//}
-
-pub fn intersection<T>(
-    start1: T, end1: T, start2: T, end2: T
-) -> T 
-where T: cmp::Ord + cmp::PartialOrd + ops::Sub<Output = T>//<T: cmp::PartialOrd + ops::Sub<Output = T>>
-{
-    
-    let min_end: T = cmp::min(end1, end2); //if end1 > end2 { end2 } else { end1 };
-    let max_start: T = cmp::max(start1, start2); //if start1 > start2 { start1 } else { start2 };
-    min_end - max_start
-}
+use crate::structs::structs::BedEntry;
 
 #[derive(PartialEq)]
 pub enum BedFractionMode {
@@ -42,11 +22,136 @@ pub enum BedFractionMode {
     Utr3
 }
 
+
+/// Basic BED file line parser
+/// 
+/// # Arguments
+/// 
+pub fn parse_bed(
+    line: String, format: usize, skip_blank: bool
+) -> Option<BedEntry> {
+    // BED file cannot contain less than three fields, and BED12+ are not currently accepted
+    if format < 3 || format > 12 {
+        panic!("Illegal BED file format specification! Accepted formats are BED3 through BED12");
+    }
+    if format == 10 || format == 11 {
+        panic!(
+            "BED10 and BED11 formats contain incomplete data on the sequence block structure. 
+If you want to parse an incomplete BED entry, consider BED9 format instead"
+        );
+    } 
+    let data: Vec<&str>  = line
+        .trim()
+        .split("\t")
+        .collect::<Vec<&str>>();
+    if data.len() == 0 {
+        // panic if skip_blank was not set
+        return None;
+    }
+
+    if (data.len() as usize) < format {
+        // panic here
+    }
+
+    let chrom: String = data[0].to_string();
+    let thin_start: u32 = data[1]
+        .parse::<u32>()
+        .expect("ThickStart is not a valid positive integer");
+    let thin_end: u32 = data[2]
+        .parse::<u32>()
+        .expect("ThickEnd is not a valid positive integer");
+    assert!(thin_start <= thin_end);
+
+    if format == 3 {
+        return Some(BedEntry::bed3(chrom, thin_start, thin_end));
+    }
+
+    let name: String = data[3].to_string();
+    if format == 4 {
+        return Some(BedEntry::bed4(chrom, thin_start, thin_end, name));
+    }
+
+    let score: String = data[4].to_string();
+    if format == 5 {
+        return Some(BedEntry::bed5(chrom, thin_start, thin_end, name, score));
+    }
+
+    let strand: bool = data[5] == "+";
+    if format == 6 {
+        return Some(BedEntry::bed6(chrom, thin_start, thin_end, name, score, strand));
+    }
+
+    let thick_start: u32 = data[6]
+        .parse::<u32>()
+        .expect("thinStart is not a valid positive integer");
+    if thick_start < thin_start {
+        panic!("thickStart value ({}) cannot be smaller than thinStart ({})", thick_start, thin_start)
+    }
+    let thick_end: u32 = data[7]
+        .parse::<u32>()
+        .expect("thinEnd is not a valid positive integer");
+    if thick_end > thin_end {
+        panic!("thickEnd value ({}) cannot be larger than thinEnd ({})", thick_end, thin_end)
+    }
+    if thick_start > thick_end {
+        panic!("thickStart value ({}) cannot be larger than thickEnd ({})", thick_start, thick_end)
+    }
+
+    if format == 8 {
+        return Some(BedEntry::bed8(chrom, thin_start, thin_end, name, score, strand, thick_start, thick_end))
+    }
+
+    let rgb: String = data[8].to_string();
+    if format == 9 {
+        return Some(
+            BedEntry::bed9(chrom, thin_start, thin_end, name, score, strand, thick_start, thick_end, rgb)
+        )
+    }
+
+    let ex_num: u32 = data[9]
+        .parse::<u32>()
+        .expect("Exon number is not a valid positive integer");
+    let exon_sizes: Vec<u32> = data[10]
+        .split(',')
+        .filter(|x|
+            !x.is_empty()
+        )
+        .map(|x|
+            x.parse::<u32>().expect("Invalid exon size value")
+        )
+        .collect::<Vec<u32>>();
+    let exon_starts: Vec<u32> = data[11]
+        .split(',') 
+        .filter(|x|
+            !x.is_empty()
+        )
+        .map(|x|
+            x.parse::<u32>().expect("Invalid exon start position")
+        )
+        .collect::<Vec<u32>>();
+    return Some(
+        BedEntry::bed12(
+            chrom, thin_start, thin_end, name, score, strand, thick_start, thick_end, rgb, 
+            ex_num, exon_sizes, exon_starts 
+        )
+    )
+}
+
+
+/// A highly optimized version for bed12ToFraction command line utility
+/// 
+/// # Arguments
+/// 
+/// * `line`: a BED12 format line string to parse
+/// * `mode`: fraction of annotated blocks to report [accepted values: "all", "cds", "utr", "3utr", "5utr"]
+/// * `intron`: boolean value specifying whether introns should be reported instead of exons
+/// * `bed6`: boolean value specifying whether the resulting fraction should be split into separate BED6 records
+/// 
+/// 
+
 pub fn bed_to_fraction(
     line: String, mode: &str, intron: bool, bed6: bool
 ) -> Option<String> {
-    // Transform BED12 line by selecting the blocks of interest
-
     let mode: BedFractionMode = match mode {
         "all" => { BedFractionMode::All },
         "cds" => { BedFractionMode::Cds },

@@ -86,15 +86,4 @@ fn main() {
         }
     }
 
-    // if let Ok(lines) = read_lines(&args.input) {
-    //     for line in lines.map_while(Result::ok) {
-    //         let result: Option<String> = bed_to_fraction(line, &args.mode, false);
-    //         if let Some(fraction) = result {
-    //             // println!("{}", fraction);
-    //             if let Err(e) = writeln!(output_file, "{}", fraction) {
-    //                 eprintln!("Failed to write the line");
-    //             }
-    //         }
-    //     }
-    // }
 }
