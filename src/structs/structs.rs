@@ -285,7 +285,7 @@ impl BedEntry{
         };
         let new_thick_start = match self.thick_start {
             Some(x) => {max(x, new_thin_start)},
-            None => {new_thin_end}
+            None => {new_thin_start}
         };
         let new_thick_end = match self.thick_end {
             Some(x) => {min(x, new_thin_end)},
@@ -298,11 +298,11 @@ impl BedEntry{
                 let mut _starts: Vec<u64> = Vec::new();
                 for i in 0..y.len() {
                     let ex_start: u64= z[i] + self.thin_start.unwrap();
-                    if ex_start > new_thin_end {continue};
+                    if ex_start > new_thin_end {break};
                     let ex_end: u64 = y[i] + ex_start;
                     if ex_end < new_thin_start {continue};
                     let new_ex_start = max(new_thin_start, ex_start) - new_thin_start;
-                    let new_ex_size = match min(ex_end, new_thin_end).checked_sub(new_ex_start){
+                    let new_ex_size = match min(ex_end, new_ex_start).checked_sub(new_ex_start){
                         Some(x) => {if x == 0 {continue} else {x}},
                         None => {continue} 
                     };
