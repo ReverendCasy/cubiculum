@@ -333,6 +333,7 @@ impl BedEntry{
         };
         let mut clipped_bed = BedEntry::empty();
         // TODO: rewrite with if-lets
+        clipped_bed.format = self.format;
         clipped_bed.chrom = match &self.chrom {
             Some(x) => {Some(x.clone())},
             None => None
