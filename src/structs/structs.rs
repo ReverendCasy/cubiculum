@@ -1,3 +1,6 @@
+use std::cmp::{min, max};
+use std::ops::Sub;
+
 /// Contains data on storage structures for annotation manipulations in Cubiculum and associated packages
 
 #[derive(Clone, Debug)]
@@ -11,6 +14,10 @@ pub struct Interval {
 impl Interval {
     pub fn new() -> Interval {
         Interval { chrom: None, start: None, end: None, name: None }
+    }
+
+    pub fn from(chrom: Option<String>, start: Option<u64>, end: Option<u64>, name: Option<String>) -> Interval {
+        Interval {chrom: chrom, start: start, end: end, name: name}
     }
 
     pub fn update_name(&mut self, name: String) {
@@ -41,7 +48,7 @@ pub struct BedEntry{
     thick_start: Option<u64>,
     thick_end: Option<u64>,
     rgb: Option<String>,
-    exon_num: Option<u64>,
+    exon_num: Option<u16>,
     exon_sizes: Option<Vec<u64>>,
     exon_starts: Option<Vec<u64>>
 }
@@ -182,7 +189,7 @@ impl BedEntry{
     pub fn bed12(
         chrom: String, start: u64, end: u64, name: String, score: String, strand: bool, 
         thick_start: u64, thick_end: u64, rgb: String, 
-        exon_num: u64, exon_sizes: Vec<u64>, exon_starts: Vec<u64>
+        exon_num: u16, exon_sizes: Vec<u64>, exon_starts: Vec<u64>
     ) -> BedEntry {
         BedEntry{
             format: Some(12), 
@@ -244,6 +251,109 @@ impl BedEntry{
             );
         }
         Some(blocks)
+    }
+
+    pub fn clip_by(&mut self, start: Option<u64>, end: Option<u64>, inplace: bool) -> Option<BedEntry> {
+        let chrom: &str = match &self.chrom {
+            Some(x) => {x},
+            None => {return None}
+        };
+        let thin_start: u64 = match self.thin_start {
+            Some(x) => {x},
+            None => {return None}
+        };
+        let name: &str = match &self.name {
+            Some(x) => {x},
+            None => {return None}
+        };
+        let new_thin_start: u64 = match start {
+            Some(x) => {max(self.thin_start.unwrap(), x)},
+            None => self.thin_start.unwrap()
+        };
+        let new_thin_end: u64 = match end {
+            Some(x) => {min(self.thin_end.unwrap(), x)},
+            None => {self.thin_end.unwrap()}
+        };
+        let new_thick_start = match self.thick_start {
+            Some(x) => {max(x, new_thin_start)},
+            None => {new_thin_end}
+        };
+        let new_thick_end = match self.thick_end {
+            Some(x) => {min(x, new_thin_end)},
+            None => {new_thin_end}
+        };
+        let (new_ex_num, new_ex_sizes, new_ex_starts) = match (self.exon_num, &self.exon_sizes, &self.exon_starts) {
+            (Some(x), Some(y), Some(z)) => {
+                let mut ex_counter: u16 = 0;
+                let mut _sizes: Vec<u64> = Vec::new();
+                let mut _starts: Vec<u64> = Vec::new();
+                for i in 0..y.len() {
+                    let ex_start: u64= z[i] + self.thin_start.unwrap();
+                    if ex_start > new_thin_end {continue};
+                    let ex_end: u64 = y[i] + ex_start;
+                    if ex_end < new_thin_start {continue};
+                    let new_ex_start = max(new_thin_start, ex_start) - new_thin_start;
+                    let new_ex_size = match min(ex_end, new_thin_end).checked_sub(new_ex_start){
+                        Some(x) => {if x == 0 {continue} else {x}},
+                        None => {continue} 
+                    };
+
+                    _sizes.push(new_ex_size);
+                    _starts.push(new_ex_start);
+                    ex_counter += 1;
+                }
+                (Some(ex_counter), Some(_sizes), Some(_starts))
+            },
+            _ => {(None, None, None)}
+        };
+        if inplace {
+            self.thin_start = Some(new_thin_start);
+            self.thin_end = Some(new_thin_end);
+            self.thick_start = Some(new_thick_start);
+            self.thick_end = Some(new_thick_end);
+            if let Some(x) = Some(new_ex_num) {
+                self.exon_num = new_ex_num
+            };
+            if let Some(x) = new_ex_sizes {
+                self.exon_sizes = Some(x)
+            };
+            if let Some(x) = new_ex_starts {
+                self.exon_starts = Some(x)
+            };
+            return None;
+        };
+        let mut clipped_bed = BedEntry::empty();
+        // TODO: rewrite with if-lets
+        clipped_bed.chrom = match &self.chrom {
+            Some(x) => {Some(x.clone())},
+            None => None
+        };
+        clipped_bed.thin_start = Some(new_thin_start);
+        clipped_bed.thin_end = Some(new_thin_end);
+        clipped_bed.name = match &self.name {
+            Some(x) => {Some(x.clone())},
+            None => {None}
+        };
+        clipped_bed.score = match &self.score {
+            Some(x) => {Some(x.clone())},
+            None => {None}
+        };
+        clipped_bed.strand = match &self.strand {
+            Some(x) => Some(*x),
+            None => {None}
+        };
+        clipped_bed.thick_start = Some(new_thick_start);
+        clipped_bed.thick_end = Some(new_thick_end);
+        clipped_bed.exon_num = new_ex_num;
+        clipped_bed.exon_sizes = new_ex_sizes;
+        clipped_bed.exon_starts = new_ex_starts;
+        Some(clipped_bed)
+
+    }
+    
+    pub fn to_cds(&mut self, inplace: bool)  -> Option<BedEntry> {
+        if self.format.unwrap() < 8 {return None};
+        self.clip_by(self.thick_start, self.thick_end, inplace)
     }
 
 

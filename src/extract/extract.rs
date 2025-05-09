@@ -108,8 +108,8 @@ If you want to parse an incomplete BED entry, consider BED9 format instead"
         )
     }
 
-    let ex_num: u64 = data[9]
-        .parse::<u64>()
+    let ex_num: u16 = data[9]
+        .parse::<u16>()
         .expect("Exon number is not a valid positive integer");
     let exon_sizes: Vec<u64> = data[10]
         .split(',')
