@@ -244,12 +244,15 @@ where
                 if i_end > next_start {
                     start2trs
                         .entry(next_start)
-                        .or_insert(Vec::new())
-                        .push(intervals[i].name().unwrap());
+                        .and_modify(|x| x.push(intervals[i].name().unwrap()))
+                        .or_insert(Vec::new());
                 };
 
                 if i_end > next_end {
-                    start2trs.entry(next_end).or_insert(Vec::new()).push(intervals[i].name().unwrap());
+                    start2trs
+                        .entry(next_end)
+                        .and_modify(|x| x.push(intervals[i].name().unwrap()))
+                        .or_insert(Vec::new());
                 };
             }
             next += 1;
@@ -263,8 +266,8 @@ where
             // define which transcripts correspond to this interval
             let tr_names: &Vec<&str>  = start2trs.get(&inter_start).unwrap_or_else(||
                 {
-                    println!("");
-                    println!("");
+                    println!("{:#?}", start2trs);
+                    println!("{:#?}", start_points);
                     panic!("No transcripts overlapping this value: {}!", inter_start);
                 }
             );
@@ -289,6 +292,17 @@ where
 #[cfg(test)]
 mod discretizer_test{
     use super::*;
+
+    #[test]
+    fn discretizer_identical(){
+        let mut input: Vec<Interval> = vec![
+            Interval::from(Some(String::from("chr1")), Some(100), Some(200), Some(String::from("one"))),
+            Interval::from(Some(String::from("chr1")), Some(100), Some(200), Some(String::from("two")))
+        ];
+        let (vec, map) = discrete_interval_map(&mut input);
+        println!("{:#?}", vec);
+        println!("{:#?}", map);
+    }
 
     #[test]
     fn discretizer_simple_overlap(){
@@ -317,6 +331,18 @@ mod discretizer_test{
         let mut input: Vec<Interval> = vec![
             Interval::from(Some(String::from("chr1")), Some(100), Some(200), Some(String::from("one"))),
             Interval::from(Some(String::from("chr1")), Some(100), Some(220), Some(String::from("two")))
+        ];
+        let (vec, map) = discrete_interval_map(&mut input);
+        println!("{:#?}", vec);
+        println!("{:#?}", map);
+    }
+
+    #[test]
+    fn discretizer_three_intervals(){
+        let mut input: Vec<Interval> = vec![
+            Interval::from(Some(String::from("chr1")), Some(100), Some(200), Some(String::from("one"))),
+            Interval::from(Some(String::from("chr1")), Some(100), Some(220), Some(String::from("two"))),
+            Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three")))
         ];
         let (vec, map) = discrete_interval_map(&mut input);
         println!("{:#?}", vec);
