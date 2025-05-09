@@ -301,14 +301,14 @@ impl BedEntry{
                     if ex_start > new_thin_end {break};
                     let ex_end: u64 = y[i] + ex_start;
                     if ex_end < new_thin_start {continue};
-                    let new_ex_start = max(new_thin_start, ex_start) - new_thin_start;
-                    let new_ex_size = match min(ex_end, new_ex_start).checked_sub(new_ex_start){
+                    let new_ex_start = max(new_thin_start, ex_start);
+                    let new_ex_size = match min(ex_end, new_thin_end).checked_sub(new_ex_start){
                         Some(x) => {if x == 0 {continue} else {x}},
                         None => {continue} 
                     };
 
                     _sizes.push(new_ex_size);
-                    _starts.push(new_ex_start);
+                    _starts.push(new_ex_start - new_thin_start);
                     ex_counter += 1;
                 }
                 (Some(ex_counter), Some(_sizes), Some(_starts))
