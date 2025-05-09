@@ -208,6 +208,15 @@ impl BedEntry{
         }
     }
 
+    pub fn to_interval(&mut self) -> Interval {
+        Interval::from(
+            self.chrom.clone(),
+            self.thin_start, 
+            self.thin_end, 
+            self.name.clone()
+        )
+    }
+
     pub fn to_blocks(&self) -> Option<Vec<BedEntry>> {
         if self.format.unwrap() != 12 {
             return None;

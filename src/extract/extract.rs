@@ -137,6 +137,10 @@ If you want to parse an incomplete BED entry, consider BED9 format instead"
     )
 }
 
+// pub fn extract_fraction(input: &BedEntry, mode: BedFractionMode, intron: bool) -> BedEntry {
+        // let mut output
+// }
+
 
 /// A highly optimized version for bed12ToFraction command line utility
 /// 

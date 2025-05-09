@@ -1,8 +1,9 @@
+use fxhash::FxHashMap;
 use num_traits::CheckedSub;
 use std::cmp::{Ord, PartialOrd, min, max};
 use std::ops::Sub;
 
-use crate::structs::structs::{Coordinates,  Interval};
+use crate::structs::structs::{Coordinates,  Interval, Named};
 
 /// Assess intersection between the two numeric intervals
 /// 
@@ -142,4 +143,171 @@ where
     let end: u64 = *intervals[intervals.len() - 1].end().unwrap();
     let name: String = String::from(format!("{}:{}-{}", chrom, start, end));
     Interval::from(Some(chrom), Some(start), Some(end), Some(name))
+}
+
+/// split a vector of potentially overlapping intervals into discrete, non-overlapping ones,
+/// and map the resulting intervals to names of original items overlapping the respective interval
+/// 
+/// 
+pub fn discrete_interval_map<T>(intervals: &mut Vec<T>) -> (Vec<Interval>, FxHashMap<String, Vec<&str>>)
+where 
+    T: Coordinates + Named
+{
+    let mut interval_vec: Vec<Interval> = Vec::new();
+    let mut out_map: FxHashMap<String, Vec<&str>> = FxHashMap::default();
+    if intervals.len() == 0 {
+        return (interval_vec, out_map);
+    }
+    intervals.sort_by(
+        |a, b| if a.start().unwrap() == b.start().unwrap() {
+            a.end().unwrap().cmp(&b.end().unwrap())
+        } else {
+            a.start().unwrap().cmp(&b.start().unwrap())
+        }
+    );
+    
+    let mut curr: usize = 0;
+    let mut next: usize = 1;
+
+    let mut start_points: Vec<u64> = Vec::new();
+    let mut start2trs: FxHashMap<u64, Vec<&str>> = FxHashMap::default();
+    let chrom: Option<String> = match intervals[0].chrom() {
+        Some(x) => {Some(x.clone())},
+        None => {None}
+    };
+    let mut curr_interval: u64 = 0;
+    // let end2trs: FxHashMap<u64, Vec<&str>> = FxHashMap::default();
+    while curr < intervals.len() {
+        let first_start: u64 = match intervals[curr].start() {
+            Some(x) => {*x},
+            None => {
+                panic!(
+                    "Cannot discretize intervals with undefined coordinates; found an undefined start coordinate for interval {}", curr
+                )
+            }
+        };
+        let first_end: u64 = match intervals[curr].end() {
+            Some(x) => {*x},
+            None => {
+                panic!(
+                    "Cannot discretize intervals with undefined coordinates; found an undefined end coordinate for interval {}", curr
+                )
+            }
+        };
+        let mut curr_end = first_end;
+        start_points.push(first_start);
+        start_points.push(first_end);
+        start2trs.entry(first_start).or_insert(Vec::new()).push(intervals[curr].name().unwrap());
+
+        while next < intervals.len() {
+            let next_start: u64 = match intervals[next].start() {
+                Some(x) => {*x},
+                None => {
+                    panic!(
+                        "Cannot discretize intervals with undefined coordinates; found an undefined start coordinate for interval {}", next
+                    )
+                }
+            };
+            let next_end: u64 = match intervals[next].end() {
+                Some(x) => {*x},
+                None => {
+                    panic!(
+                        "Cannot discretize intervals with undefined coordinates; found an undefined end coordinate for interval {}", next
+                    )
+                }
+            };
+            // if let None = intersection(curr_start, curr_end, next_start, next_end) {
+            //     println!("BBBREAK");
+            //     break
+            // }
+            if next_start > curr_end {
+                break
+            }
+            // curr_start = min(curr_start, next_start);
+            curr_end = max(curr_end, next_end);
+            if !start_points.contains(&next_start) {start_points.push(next_start)};
+            if !start_points.contains(&next_end) {start_points.push(next_end)};
+            // check if this interval covers the end coordinate of the first interval
+            if next_start < first_end {
+                start2trs.entry(first_end).or_insert(Vec::new()).push(intervals[next].name().unwrap());
+            }
+            // map interval names to start coordinate
+            for i in curr..next+1 {
+                // every interval that does not end before this point is attributed to this discrete interval
+                let i_end: u64 = *intervals[i].end().unwrap();
+                if i_end > next_start {
+                    start2trs
+                        .entry(next_start)
+                        .or_insert(Vec::new())
+                        .push(intervals[i].name().unwrap());
+                };
+
+                if i_end > next_end {
+                    start2trs.entry(next_end).or_insert(Vec::new()).push(intervals[i].name().unwrap());
+                };
+            }
+            next += 1;
+        }
+        // discretize the overlapping interval
+        start_points.sort();
+        for i in 1..start_points.len() {
+            // define interval boundaries
+            let inter_start: u64 = start_points[i-1];
+            let inter_end: u64 = start_points[i];
+            // define which transcripts correspond to this interval
+            let tr_names: &Vec<&str>  = start2trs.get(&inter_start).unwrap();
+            // create an interval object and add the resulting values to the output collections
+            let interval_name: String = curr_interval.to_string();
+            out_map.insert(interval_name.clone(), tr_names.clone());
+            let discrete_interval: Interval = Interval::from(
+                chrom.clone(), Some(inter_start), Some(inter_end), Some(interval_name)
+            );
+            interval_vec.push(discrete_interval); 
+            curr_interval += 1;
+        }
+        // clear the storage structures
+        start_points.clear();
+        start2trs.clear();
+        // next iteration starts from the break point
+        curr = next;
+    }
+    (interval_vec, out_map)
+}
+
+#[cfg(test)]
+mod discretizer_test{
+    use super::*;
+
+    #[test]
+    fn discretizer_simple_overlap(){
+        let mut input: Vec<Interval> = vec![
+            Interval::from(Some(String::from("chr1")), Some(100), Some(200), Some(String::from("one"))),
+            Interval::from(Some(String::from("chr1")), Some(150), Some(220), Some(String::from("two")))
+        ];
+        let (vec, map) = discrete_interval_map(&mut input);
+        println!("{:#?}", vec);
+        println!("{:#?}", map);
+    }
+
+    #[test]
+    fn discretizer_nested_overlap(){
+        let mut input: Vec<Interval> = vec![
+            Interval::from(Some(String::from("chr1")), Some(100), Some(200), Some(String::from("one"))),
+            Interval::from(Some(String::from("chr1")), Some(150), Some(180), Some(String::from("two")))
+        ];
+        let (vec, map) = discrete_interval_map(&mut input);
+        println!("{:#?}", vec);
+        println!("{:#?}", map);
+    }
+
+    #[test]
+    fn discretizer_shared_start(){
+        let mut input: Vec<Interval> = vec![
+            Interval::from(Some(String::from("chr1")), Some(100), Some(200), Some(String::from("one"))),
+            Interval::from(Some(String::from("chr1")), Some(100), Some(220), Some(String::from("two")))
+        ];
+        let (vec, map) = discrete_interval_map(&mut input);
+        println!("{:#?}", vec);
+        println!("{:#?}", map);
+    }
 }

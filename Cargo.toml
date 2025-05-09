@@ -1,6 +1,6 @@
 [package]
 name = "cubiculum"
-version = "0.1.10"
+version = "0.1.11"
 authors = ["Yury V. Malovichko <iurii.malovichko@gmail.com>"]
 resolver = "2"
 edition = "2021"
@@ -9,6 +9,7 @@ description = "Parse and modify sequence annotation data in BED format"
 
 [dependencies]
 clap = { version = "4.5.37", features = ["derive"] }
+fxhash = "0.2.1"
 num-traits = "0.2.19"
 
 [[bin]]
