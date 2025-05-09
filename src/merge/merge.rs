@@ -194,6 +194,9 @@ where
                 )
             }
         };
+        if let None = intervals[curr].name() {
+            panic!("Cannot discretize unnamed intervals");
+        }
         let mut curr_end = first_end;
         start_points.push(first_start);
         start_points.push(first_end);
@@ -216,6 +219,9 @@ where
                     )
                 }
             };
+            if let None = intervals[next].name() {
+                panic!("Cannot discretize unnamed intervals");
+            }
             // if let None = intersection(curr_start, curr_end, next_start, next_end) {
             //     println!("BBBREAK");
             //     break
@@ -255,7 +261,13 @@ where
             let inter_start: u64 = start_points[i-1];
             let inter_end: u64 = start_points[i];
             // define which transcripts correspond to this interval
-            let tr_names: &Vec<&str>  = start2trs.get(&inter_start).unwrap();
+            let tr_names: &Vec<&str>  = start2trs.get(&inter_start).unwrap_or_else(||
+                {
+                    println!("");
+                    println!("");
+                    panic!("No transcripts overlapping this value: {}!", inter_start);
+                }
+            );
             // create an interval object and add the resulting values to the output collections
             let interval_name: String = curr_interval.to_string();
             out_map.insert(interval_name.clone(), tr_names.clone());
