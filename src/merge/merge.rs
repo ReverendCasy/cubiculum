@@ -219,40 +219,50 @@ where
                     )
                 }
             };
+
             if let None = intervals[next].name() {
                 panic!("Cannot discretize unnamed intervals");
             }
-            // if let None = intersection(curr_start, curr_end, next_start, next_end) {
-            //     println!("BBBREAK");
-            //     break
-            // }
+
             if next_start > curr_end {
                 break
             }
-            // curr_start = min(curr_start, next_start);
+
             curr_end = max(curr_end, next_end);
             if !start_points.contains(&next_start) {start_points.push(next_start)};
             if !start_points.contains(&next_end) {start_points.push(next_end)};
-            // check if this interval covers the end coordinate of the first interval
-            if next_start < first_end {
-                start2trs.entry(first_end).or_insert(Vec::new()).push(intervals[next].name().unwrap());
+            for i in &start_points {
+                if *i < next_start {continue};
+                if *i >= next_end {continue};
+                start2trs
+                    .entry(*i)
+                    .and_modify(|x| 
+                        if x.contains(&intervals[next].name().unwrap()) {} else {x.push(intervals[next].name().unwrap())}
+                    )
+                    .or_insert(vec![intervals[next].name().unwrap()]);
             }
-            // map interval names to start coordinate
+
+            // assess whether any of the previous intervals cover terminal coordinates for the current interval
             for i in curr..next+1 {
                 // every interval that does not end before this point is attributed to this discrete interval
                 let i_end: u64 = *intervals[i].end().unwrap();
+                // println!("i_end={}, next_start={}, next_end={}", i_end, next_start, next_end);
                 if i_end > next_start {
                     start2trs
                         .entry(next_start)
-                        .and_modify(|x| x.push(intervals[i].name().unwrap()))
-                        .or_insert(Vec::new());
+                        .and_modify(|x| 
+                            if x.contains(&intervals[i].name().unwrap()) {} else {x.push(intervals[i].name().unwrap())}
+                        )
+                        .or_insert(vec![intervals[i].name().unwrap()]);
                 };
 
                 if i_end > next_end {
                     start2trs
                         .entry(next_end)
-                        .and_modify(|x| x.push(intervals[i].name().unwrap()))
-                        .or_insert(Vec::new());
+                        .and_modify(|x| 
+                            if x.contains(&intervals[i].name().unwrap()) {} else {x.push(intervals[i].name().unwrap())}
+                        )
+                        .or_insert(vec![intervals[i].name().unwrap()]);
                 };
             }
             next += 1;
@@ -343,6 +353,33 @@ mod discretizer_test{
             Interval::from(Some(String::from("chr1")), Some(100), Some(200), Some(String::from("one"))),
             Interval::from(Some(String::from("chr1")), Some(100), Some(220), Some(String::from("two"))),
             Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three")))
+        ];
+        let (vec, map) = discrete_interval_map(&mut input);
+        println!("{:#?}", vec);
+        println!("{:#?}", map);
+    }
+
+    #[test]
+    fn real_life_test(){
+        let mut input: Vec<Interval> = vec![
+            Interval::from(Some(String::from("chr9")), Some(113042724), Some(113044268), Some(String::from("ENST00000374227.8#ZFP37_1"))),
+            Interval::from(Some(String::from("chr9")), Some(113049361), Some(113049496), Some(String::from("ENST00000374227.8#ZFP37_2"))),
+            Interval::from(Some(String::from("chr9")), Some(113049790), Some(113049872), Some(String::from("ENST00000374227.8#ZFP37_3"))),
+            Interval::from(Some(String::from("chr9")), Some(113056556), Some(113056688), Some(String::from("ENST00000374227.8#ZFP37_4"))),
+            Interval::from(Some(String::from("chr9")), Some(113042724), Some(113044268), Some(String::from("NM_001282515.2#ZFP37_1"))),
+            Interval::from(Some(String::from("chr9")), Some(113049361), Some(113049496), Some(String::from("NM_001282515.2#ZFP37_2"))),
+            Interval::from(Some(String::from("chr9")), Some(113049790), Some(113049917), Some(String::from("NM_001282515.2#ZFP37_3"))),
+            Interval::from(Some(String::from("chr9")), Some(113056556), Some(113056688), Some(String::from("NM_001282515.2#ZFP37_4"))),
+            Interval::from(Some(String::from("chr9")), Some(113042724), Some(113044268), Some(String::from("NM_001282518.2#ZFP37_1"))),
+            Interval::from(Some(String::from("chr9")), Some(113049361), Some(113049496), Some(String::from("NM_001282518.2#ZFP37_2"))),
+            Interval::from(Some(String::from("chr9")), Some(113049790), Some(113049875), Some(String::from("NM_001282518.2#ZFP37_3"))),
+            Interval::from(Some(String::from("chr9")), Some(113056556), Some(113056688), Some(String::from("NM_001282518.2#ZFP37_4"))),
+            // Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three"))),
+            // Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three"))),
+            // Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three"))),
+            // Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three"))),
+            // Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three"))),
+            // Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three"))),
         ];
         let (vec, map) = discrete_interval_map(&mut input);
         println!("{:#?}", vec);
