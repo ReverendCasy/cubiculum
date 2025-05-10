@@ -8,10 +8,31 @@
 
 #[allow(dead_code)]
 
+// use anyhow::{Error, Result};
 use std::cmp;
+use std::fmt::Display;
 use std::ops;
 
-use crate::structs::structs::BedEntry;
+use crate::structs::structs::{BedEntry, Coordinates};
+
+#[derive(Debug)]
+pub enum CubiculumError {
+    ParseError(String),
+    MissingTraitError(String),
+    FormattingError(String),
+}
+
+impl Display for CubiculumError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            CubiculumError::ParseError(x) => {write!(f, "ParseError: {}", x)},
+            CubiculumError::MissingTraitError(x) => {write!(f, "MissingTraitError: {}", x)},
+            CubiculumError::FormattingError(x) => {write!(f, "FormattingError: {}", x)},
+        }
+    }
+}
+
+impl std::error::Error for CubiculumError {}
 
 #[derive(PartialEq)]
 pub enum BedFractionMode {
@@ -141,6 +162,138 @@ If you want to parse an incomplete BED entry, consider BED9 format instead"
         // let mut output
 // }
 
+/// Format a BedEntry object into a tab-separated BED file line
+/// 
+/// # Arguments
+/// `bed_entry`: a BedEntry object to convert
+/// `format`: number of columns in the output line, three through twelve.
+/// (WARNING: BED12+ files are currently not accepted)
+/// 
+/// # Returns
+/// A String representation of the input BedEntry
+/// 
+pub fn to_line(bed_entry: BedEntry, format: u8) -> Result<String, CubiculumError> {
+    let entry_format = match bed_entry.format() {
+        0 => {return Err(CubiculumError::MissingTraitError("Undefined BED format for the entry".to_string()))}
+        x  => {x},
+    };
+    if entry_format < format {
+        return Err(
+            CubiculumError::FormattingError(
+                format!("Cannot format BED{} entry into a BED{} line", format, entry_format)
+            )
+        );
+    }
+    if format < 3 || format == 7 || (format > 9 && format < 12) || format > 12 {
+        return Err(
+            CubiculumError::FormattingError(
+                format!("Provided format BED{} is not supported. Accepted formats are : BED3,4,5,6,8,9,12", format)
+            )
+        );
+    }
+    let out = String::new();
+    let chrom = match bed_entry.chrom() {
+        Some(x) => {x},
+        None => {return Err(CubiculumError::MissingTraitError("Undefined chromosome field".to_string()))}
+    };
+    let thin_start = match bed_entry.thin_start() {
+        Some(x) => {x},
+        None => {return Err(CubiculumError::MissingTraitError("Undefined thinStart field".to_string()))}
+    };
+    let thin_end = match bed_entry.thin_end() {
+        Some(x) => {x},
+        None => {return Err(CubiculumError::MissingTraitError("Undefined thinEnd field".to_string()))}
+    };
+    if format == 3 {
+        return Ok(format!("{}\t{}\t{}", chrom, thin_start, thin_end));
+    }
+    let name = match bed_entry.name() {
+        Some(x) => {x},
+        None => {return Err(CubiculumError::MissingTraitError("Undefined name field".to_string()))}
+    };
+    if format == 4 {
+        return Ok(format!("{}\t{}\t{}\t{}", chrom, thin_start, thin_end, name));
+    }
+    let score = match bed_entry.score() {
+        Some(x) => {x},
+        None => {return Err(CubiculumError::MissingTraitError("Undefined score field".to_string()))}
+    };
+    if format == 5 {
+        return Ok(format!("{}\t{}\t{}\t{}\t{}", chrom, thin_start, thin_end, name, score));
+    }
+    let strand = match bed_entry.strand() {
+        Some(x) => {
+            match x {
+                true => {'+'},
+                false => {'-'}
+            }
+        },
+        None => {return Err(CubiculumError::MissingTraitError("Undefined strand field".to_string()))}
+    };
+    if format == 6 {
+        return Ok(format!("{}\t{}\t{}\t{}\t{}\t{}", chrom, thin_start, thin_end, name, score, strand));
+    }
+    let thick_start = match bed_entry.thick_start() {
+        Some(x) => {x},
+        None => {return Err(CubiculumError::MissingTraitError("Undefined thickStart field".to_string()))}
+    };
+    let thick_end = match bed_entry.thick_end() {
+        Some(x) => {x},
+        None => {return Err(CubiculumError::MissingTraitError("Undefined thickEnd field".to_string()))}
+    };
+    if format == 8 {
+        return Ok(
+            format!(
+                "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", 
+                chrom, thin_start, thin_end, name, score, strand, thick_start, thick_end
+            )
+        );
+    }
+    let rgb = match bed_entry.rgb() {
+        Some(x) => {x},
+        None => {return Err(CubiculumError::MissingTraitError("Undefined Rgb field".to_string()))}
+    };
+    if format == 9 {
+        return Ok(
+            format!(
+                "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", 
+                chrom, thin_start, thin_end, name, score, strand, thick_start, thick_end, rgb
+            )
+        );
+    }
+    let exon_num = match bed_entry.exon_num() {
+        Some(x) => {x},
+        None => {return Err(CubiculumError::MissingTraitError("Undefined exonNumber field".to_string()))}
+    };
+    let exon_sizes = match bed_entry.exon_sizes() {
+        Some(x) => {
+            x
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>()
+                .join(",") + ","
+        },
+        None => {return Err(CubiculumError::MissingTraitError("Undefined exonSizes field".to_string()))}
+    };
+    let exon_starts = match bed_entry.exon_starts() {
+        Some(x) => {
+            x
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>()
+                .join(",") + ","
+        },
+        None => {return Err(CubiculumError::MissingTraitError("Undefined exonStarts field".to_string()))}
+    };
+    return Ok(
+        format!(
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", 
+            chrom, thin_start, thin_end, name, score, strand, 
+            thick_start, thick_end, rgb,
+            exon_num, exon_sizes, exon_starts
+        )
+    );
+}
 
 /// A highly optimized version for bed12ToFraction command line utility
 /// 

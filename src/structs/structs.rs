@@ -1,5 +1,7 @@
 use std::cmp::{min, max};
-use std::ops::Sub;
+
+use crate::extract::extract::{parse_bed, to_line};
+use crate::merge::merge::{intersection, merge_multiple};
 
 /// Contains data on storage structures for annotation manipulations in Cubiculum and associated packages
 
@@ -70,6 +72,27 @@ impl BedEntry{
             exon_sizes: None, 
             exon_starts: None
         }
+    }
+
+    pub fn from_interval<T>(inter: T) -> Option<BedEntry> 
+    where T:
+        Coordinates
+    {
+        let mut output: BedEntry = BedEntry::empty();
+        let mut format: u8 = 0;
+        let chrom = match inter.chrom() {
+            Some(x) => {x.clone()},
+            None => {return None}
+        };
+        let thin_start = match inter.start() {
+            Some(x) => {*x},
+            None => {return None}
+        };
+        let thin_end = match inter.end() {
+            Some(x) => {*x},
+            None => {return None}
+        };
+        Some(BedEntry::bed3(chrom, thin_start, thin_end))
     }
 
     pub fn bed3(chrom: String, start: u64, end: u64) -> BedEntry {
@@ -206,6 +229,58 @@ impl BedEntry{
             exon_sizes: Some(exon_sizes), 
             exon_starts: Some(exon_starts)
         }
+    }
+
+    pub fn format(&self) -> u8 {
+        if let None = self.format {return 0};
+        self.format.unwrap()
+    }
+
+    pub fn thin_start(&self) -> Option<u64> {
+        self.thin_start
+    }
+
+    pub fn thin_end(&self) -> Option<u64> {
+        self.thin_end
+    }
+
+    pub fn name(&self) -> Option<&String> {
+        self.name.as_ref()
+    }
+
+    pub fn score(&self) -> Option<&String> {
+        self.score.as_ref()
+    }
+    pub fn strand(&self) -> Option<bool> {
+        self.strand
+    }
+
+    pub fn thick_start(&self) -> Option<u64> {
+        self.thick_start
+    }
+
+    pub fn thick_end(&self) -> Option<u64> {
+        self.thick_end
+    }
+
+    pub fn rgb(&self) -> Option<&String> {
+        self.rgb.as_ref()
+    }
+
+    pub fn exon_num(&self) -> Option<u16> {
+        self.exon_num
+    }
+
+    pub fn exon_sizes(&self) -> Option<&Vec<u64>> {
+        self.exon_sizes.as_ref()
+    }
+
+    pub fn exon_starts(&self) -> Option<&Vec<u64>> {
+        self.exon_starts.as_ref()
+    }
+
+    pub fn update_thin_start(&mut self, thin_start: u64) {
+        self.thin_start = Some(thin_start)
     }
 
     pub fn to_interval(&mut self) -> Interval {
@@ -366,7 +441,283 @@ impl BedEntry{
         self.clip_by(self.thick_start, self.thick_end, inplace)
     }
 
+    pub fn graft<T>(
+        &mut self, graft: T, inplace: bool,
+        chrom_compatible: bool,
+        allow_overlaps: bool, coding: bool,
+        append_upstream: bool, append_downstream: bool,
+    ) -> Option<BedEntry> 
+    where
+        T: Coordinates + Clone
+    {
+        if append_upstream && append_downstream {
+            panic!("Cannot append from both up- and downstream sides");
+        }
+        if self.format() != 12 {
+            panic!("Cannot graft to a non-BED12 object");
+        }
+        if chrom_compatible {
+            match (self.chrom(), graft.chrom()) {
+                (Some(x), Some(y)) => {
+                    if x != y {
+                        panic!("BED12 and graft are located on different chromosomes ({} and {})", x, y)
+                    }
+                },
+                _ => {panic!("Undefined chromosome for either BED12 or graft when `chrom_compatible` was set")}
+            }
+        }
 
+        let mut thin_start = match self.thin_start {
+            Some(x) => {x},
+            None => {panic!("Undefined thinStart value for BED12")}
+        };
+        let mut thick_start = match self.thick_start {
+            Some(x) => {x},
+            None => {panic!("Undefined thickStart value for BED12")}
+        };
+        let mut thin_end = match self.thin_end {
+            Some(x) => {x},
+            None => {panic!("Undefined thinEnd value for BED12")}
+        };
+        let mut thick_end = match self.thick_end {
+            Some(x) => {x},
+            None => {panic!("Undefined thickEnd value for BED12")}
+        };
+        
+        let mut exon_num = match self.exon_num {
+            Some(x) => {x},
+            None => {panic!("Exon number is not defined for the BED12 object")}
+        };
+
+        let mut exon_sizes = match &mut self.exon_sizes {
+            Some(x) => {x.clone()},
+            None => {panic!("Exon sizes are not defined for the BED12 object")}
+        };
+        let mut exon_starts = match &mut self.exon_starts {
+            Some(x) => {x.clone()},
+            None => {panic!("Exon starts are not defined for the BED12 object")}
+        };
+
+        let graft_start = match graft.start() {
+            Some(x) => {*x},
+            None => {panic!("Undefined start coordinate for a grafted interval")}
+        };
+        let graft_end = match graft.end() {
+            Some(x) => {*x},
+            None => {panic!("Undefined end coordinate for a grafted interval")}
+        };
+        let graft_len = graft.length().unwrap();
+
+        // for appending upstream, only the start coordinate actually matters
+        if append_upstream {
+            if coding && thin_start != thick_start {
+                panic!("Attempting to graft a coding block to a sequence with non-coding upstream fraction")
+            }
+            if !coding && graft_start > thick_start {
+                println!("Graft start coordinate lies within the coding sequence");
+                return None;
+            };
+            // update the start coordinate(s)
+            let updated_start: bool = graft_start < thin_start;
+            // thin_start = graft_start;
+            if coding {thick_start = graft_start};
+            // append the graft to the first block
+            // first, increase the size of the first block
+            exon_sizes[0] += graft.length().unwrap();
+            let mut grafted = false;
+            for i in 0..exon_sizes.len() {
+                let exon_start = thin_start + exon_starts[i];
+                let exon_end =  exon_start + exon_sizes[i];
+                if exon_end > thick_start && !grafted {
+                    // check if exon has a non-coding fraction
+                    if exon_start < thick_start {
+                        if graft_start < exon_start {
+                            exon_sizes[i] += exon_start - graft_start;
+                            if i != 0 {exon_starts[i] = exon_start - graft_start;}
+                        }
+                    } else {
+                        // just tilt the exon start and update its size
+                        exon_starts[i] -= graft_len;
+                        exon_sizes[i] += graft_len;
+                    }
+                    grafted = true;
+                    // potentially, nothing will happen further; break the loop
+                    if !updated_start {break}
+                } else {
+                    if updated_start {
+                        exon_starts[i] += thin_start - graft_start;
+                    }
+                }
+                // exon_starts[i] += graft_len;
+            }
+            thin_start = min(thin_start, graft_start)
+        } else if append_downstream {
+        // the reverse is true for downstream appending
+            if coding && thin_end != thick_end {
+                panic!("Attempting to graft a coding block to a sequence with non-coding downstream fraction")
+            }
+            if !coding && graft_end < thick_end {
+                println!("Graft end coordinate lies within the coding sequence");
+                return None;
+            };
+            // update the start coordinate(s)
+            if coding {thick_end = graft_end};
+            // append the graft to the last block
+            // for that, find the last coding block first
+            for mut i in 0..exon_sizes.len() {
+                i = exon_sizes.len() - i - 1;
+                let exon_start = thin_start + exon_starts[i];
+                let exon_end =  exon_start + exon_sizes[i];
+                if exon_start < thick_end {
+                    // first coding exon caught
+                    if exon_end > thick_end {
+                        if graft_end > thick_end {
+                            exon_sizes[i] += graft_end - thick_end;
+                        }
+                    } else {
+                        exon_sizes[i] += graft_len;
+                    }
+                    // further exons will not be affected; feel free to break
+                    break
+                }
+            }
+            // exon start positions will not change in this case though
+            thin_end = max(graft_end, thin_end);
+        } else {
+            // if graft_start > thin_start {
+            //     println!("Graft start coordinate lies within the coding sequence");
+            //     return None;
+            // };
+            // if graft_end < thin_end {
+            //     println!("Graft end coordinate lies within the coding sequence");
+            //     return None;
+            // };
+            let mut blocks = self.to_blocks().unwrap();
+            blocks.push(BedEntry::from_interval(graft).unwrap());
+            let merged_blocks = merge_multiple(&mut blocks);
+            if merged_blocks.len() < exon_num as usize {
+                println!("Grafted interval overlaps some of the existing blocks. Consider setting allow overlap to allow merging blocks");
+                return None;
+            }
+            exon_sizes.clear();
+            exon_starts.clear();
+            thin_start = min(thin_start, graft_start);
+            thin_end = max(thin_end, graft_end);
+            if coding {
+                thick_start = min(thick_start, graft_start);
+                thick_end = max(thick_end, graft_end);
+            }
+            for i in 0..merged_blocks.len() {
+                let inter = &merged_blocks[i];
+                let start = inter.start().unwrap();
+                let end = inter.end().unwrap();
+                exon_sizes.push(end - start);
+                exon_starts.push(start - thin_start);
+            }
+            exon_num = merged_blocks.len() as u16;
+        }
+
+        if inplace{
+            self.thin_start = Some(thin_start);
+            self.thin_end = Some(thin_end);
+            self.thick_start = Some(thick_start);
+            self.thick_start = Some(thick_start);
+            self.exon_num = Some(exon_num as u16);
+            self.exon_sizes = Some(exon_sizes);
+            self.exon_starts = Some(exon_starts);
+            return None;
+        }
+        let mut grafted_bed = BedEntry::empty();
+        grafted_bed.format = Some(12);
+        grafted_bed.chrom = self.chrom.clone();
+        grafted_bed.thin_start = Some(thin_start);
+        grafted_bed.thin_end = Some(thin_end);
+        grafted_bed.name = self.name.clone();
+        grafted_bed.score = self.score.clone();
+        grafted_bed.strand = self.strand;
+        grafted_bed.thick_start = Some(thick_start);
+        grafted_bed.thick_end = Some(thick_end);
+        grafted_bed.rgb = self.rgb.clone();
+        grafted_bed.exon_num = Some(exon_num);
+        grafted_bed.exon_sizes = Some(exon_sizes);
+        grafted_bed.exon_starts = Some(exon_starts);
+        Some(grafted_bed)
+    }
+}
+
+#[cfg(test)]
+mod test_graft {
+    use super::*;
+
+    #[test]
+    fn test_graft_upstream(){
+        // let input = BedEntry::bed12(
+        //     String::from("chr1"),
+        //     53298978,
+        //     53308962,
+        //     String::from("XM_047446425.1#ORMDL1#78"),
+        //     String::from("0"),
+        //     true,
+        //     53298978,
+        //     53308962,
+        //     String::from("0,0,100"),
+        //     3,
+        //     vec![174,152,136,],
+        //     vec![0,6476,9848,]
+        // );
+        let mut input = parse_bed(
+            String::from("chr1	53298978	53308962	XM_047446425.1#ORMDL1#78	0	+	53298978	53308962	0,0,100	3	174,152,136,	0,6476,9848,"),
+            12,
+            false
+        ).unwrap();
+        let graft1 = parse_bed(
+            String::from("chr1	53297131	53298145	XM_047446425.1#ORMDL1#78	1	+"),
+            6,
+            false
+        ).unwrap();
+        println!("Adding graft1");
+        let grafted = input.graft(
+            graft1, 
+            true, 
+            true, 
+            false, 
+            false, 
+            false, 
+            false
+        );
+        let graft2 = parse_bed(
+            String::from("chr1	53298971	53298978	XM_047446425.1#ORMDL1#78	2	+"),
+            6,
+            false
+        ).unwrap();
+        println!("Adding graft2");
+        let grafted = input.graft(
+            graft2, 
+            true, 
+            true, 
+            false, 
+            false, 
+            true, 
+            false
+        );
+        let graft3 = parse_bed(
+            String::from("chr1	53308962	53310298	XM_047446425.1#ORMDL1#78	3	+"),
+            6,
+            false
+        ).unwrap();
+        println!("Adding graft3");
+        let grafted = input.graft(
+            graft3, 
+            true, 
+            true, 
+            false, 
+            false, 
+            false, 
+            true
+        );
+        println!("{:#?}", input);
+        println!("{:#?}", to_line(input, 12));
+    }
 }
 
 pub trait Coordinates{
@@ -394,7 +745,7 @@ impl Coordinates for Interval {
 
     fn length(&self) -> Option<u64> {
         match (self.start, self.end) {
-            (Some(a), Some(b)) => {Some(a + b)},
+            (Some(a), Some(b)) => {b.checked_sub(a)},
             _ => None
         }
     }
@@ -415,7 +766,7 @@ impl Coordinates for BedEntry {
 
     fn length(&self) -> Option<u64> {
         match (self.thin_start, self.thin_end) {
-            (Some(a), Some(b)) => {Some(a + b)},
+            (Some(a), Some(b)) => {b.checked_sub(a)},
             _ => None
         }
     }

@@ -112,9 +112,17 @@ where
                 out_interval.update_chrom(el.chrom().unwrap().clone());
                 out_interval.update_start(prev_start);
                 out_interval.update_end(prev_end);
+                out_vec.push(out_interval);
             }
         };
     }
+    out_vec.sort_by(
+        |a, b| if a.start().unwrap() == b.start().unwrap() {
+            a.end().unwrap().cmp(&b.end().unwrap())
+        } else {
+            a.start().unwrap().cmp(&b.start().unwrap())
+        }
+        );
     out_vec
 }
 
