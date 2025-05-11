@@ -778,6 +778,10 @@ pub trait Coordinates{
 
     fn end(&self) -> Option<&u64>;
 
+    fn reset_start(&mut self);
+
+    fn reset_end(&mut self);
+
     fn length(&self) -> Option<u64>;
 }
 
@@ -792,6 +796,14 @@ impl Coordinates for Interval {
 
     fn end(&self) -> Option<&u64> {
         self.end.as_ref()
+    }
+
+    fn reset_start(&mut self) {
+        self.start = None;
+    }
+
+    fn reset_end(&mut self) {
+        self.end = None;
     }
 
     fn length(&self) -> Option<u64> {
@@ -819,6 +831,14 @@ impl<'a> Coordinates for  &'a Interval {
         self.end.as_ref()
     }
 
+    fn reset_start(&mut self) {
+        // self.start = None;
+    }
+
+    fn reset_end(&mut self) {
+        // self.end = None;
+    }
+
     fn length(&self) -> Option<u64> {
         match (self.start, self.end) {
             (Some(a), Some(b)) => {b.checked_sub(a)},
@@ -838,6 +858,14 @@ impl Coordinates for BedEntry {
 
     fn end(&self) -> Option<&u64> {
         self.thin_end.as_ref()
+    }
+
+    fn reset_start(&mut self) {
+        // self.start = None;
+    }
+
+    fn reset_end(&mut self) {
+        // self.end = None;
     }
 
     fn length(&self) -> Option<u64> {
@@ -862,6 +890,14 @@ impl<'a> Coordinates for  &'a UtrBlock {
         self.end.as_ref()
     }
 
+    fn reset_start(&mut self) {
+        //
+    }
+
+    fn reset_end(&mut self) {
+        // self.end = None;
+    }
+
     fn length(&self) -> Option<u64> {
         match (self.start, self.end) {
             (Some(a), Some(b)) => {b.checked_sub(a)},
@@ -881,6 +917,14 @@ impl Coordinates for UtrBlock {
 
     fn end(&self) -> Option<&u64> {
         self.end.as_ref()
+    }
+
+    fn reset_start(&mut self) {
+        self.start = None;
+    }
+
+    fn reset_end(&mut self) {
+        self.end = None;
     }
 
     fn length(&self) -> Option<u64> {
@@ -926,6 +970,19 @@ impl Named for Interval {
     }
 }
 
+impl<'a> Named for &'a Interval {
+    fn name(&self) -> Option<&str> {
+        match self.name.as_ref() {
+            Some(x) => Some(x),
+            None => None
+        }
+    }
+
+    fn update_name(&mut self, new_name: &str ) {
+        // self.name = Some(new_name.to_string());
+    }
+}
+
 impl Named for BedEntry{
     fn name(&self) -> Option<&str> {
         match self.name.as_ref() {
@@ -939,6 +996,19 @@ impl Named for BedEntry{
     }
 }
 
+impl<'a> Named for &'a BedEntry{
+    fn name(&self) -> Option<&str> {
+        match self.name.as_ref() {
+            Some(x) => Some(x),
+            None => None
+        }
+    }
+
+    fn update_name(&mut self, new_name: &str ) {
+        // self.name = Some(new_name.to_string());
+    }
+}
+
 impl Named for UtrBlock{
     fn name(&self) -> Option<&str> {
         match self.name.as_ref() {
@@ -949,5 +1019,18 @@ impl Named for UtrBlock{
 
     fn update_name(&mut self, new_name: &str ) {
         self.name = Some(new_name.to_string());
+    }
+}
+
+impl<'a> Named for &'a UtrBlock{
+    fn name(&self) -> Option<&str> {
+        match self.name.as_ref() {
+            Some(x) => Some(x),
+            None => None
+        }
+    }
+
+    fn update_name(&mut self, new_name: &str ) {
+        // self.name = Some(new_name.to_string());
     }
 }
