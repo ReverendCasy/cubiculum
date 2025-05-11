@@ -841,6 +841,22 @@ impl Coordinates for UtrBlock {
     }
 }
 
+pub trait Stranded {
+    fn strand(&self) -> bool;
+
+    fn update_strand(&mut self, strand: bool);
+}
+
+impl Stranded for UtrBlock {
+    fn strand(&self) -> bool {
+        self.strand.unwrap()
+    }
+
+    fn update_strand(&mut self, strand: bool) {
+        self.strand = Some(strand)
+    }
+}
+
 pub trait Named {
     fn name(&self) -> Option<&str>;
 
