@@ -158,10 +158,6 @@ If you want to parse an incomplete BED entry, consider BED9 format instead"
     )
 }
 
-// pub fn extract_fraction(input: &BedEntry, mode: BedFractionMode, intron: bool) -> BedEntry {
-        // let mut output
-// }
-
 /// Format a BedEntry object into a tab-separated BED file line
 /// 
 /// # Arguments
@@ -170,7 +166,7 @@ If you want to parse an incomplete BED entry, consider BED9 format instead"
 /// (WARNING: BED12+ files are currently not accepted)
 /// 
 /// # Returns
-/// A String representation of the input BedEntry
+/// A Result containing a String representation of the input BedEntry
 /// 
 pub fn to_line(bed_entry: BedEntry, format: u8) -> Result<String, CubiculumError> {
     let entry_format = match bed_entry.format() {
@@ -295,7 +291,285 @@ pub fn to_line(bed_entry: BedEntry, format: u8) -> Result<String, CubiculumError
     );
 }
 
-/// A highly optimized version for bed12ToFraction command line utility
+
+/// Extract a given fraction from the BED12 BedEntry object and return it as another BedEntry object
+/// 
+/// # Arguments
+/// `bed_entry`: BedEntry object in BED12 format to extract data from;
+/// `fraction`: BedFractionMode enum specifying which sequence fraction to extract;
+/// `intron`: boolean value indicating whether intron intervals should be reported as BED12 blocks insterad of exons
+/// 
+/// # Returns
+/// A Result containing the queried fraction as a BedEntry object (format 12)
+/// 
+pub fn extract_fraction(input: &BedEntry, mode: BedFractionMode, intron: bool) -> Result<Option<BedEntry>, CubiculumError> {
+    let mut thin_start: u64 = match input.thin_start() {
+        Some(x) => {x},
+        None => {
+            return Err(
+                CubiculumError::MissingTraitError("Cannot `extract_fraction` from a BedQuery object with unknown thinStart".to_string())
+            )
+        }
+    };
+    let mut thin_end: u64 = match input.thin_end() {
+        Some(x) => {x},
+        None => {
+            return Err(
+                CubiculumError::MissingTraitError("Cannot `extract_fraction` from a BedQuery object with unknown thinEnd".to_string())
+            )
+        }
+    };
+
+    let mut thick_start: u64 = match input.thick_start() {
+        Some(x) => {x},
+        None => {
+            return Err(
+                CubiculumError::MissingTraitError("Cannot `extract_fraction` from a BedQuery object with unknown thickStart".to_string())
+            )
+        }
+    };
+    let mut thick_end: u64 = match input.thick_end() {
+        Some(x) => {x},
+        None => {
+            return Err(
+                CubiculumError::MissingTraitError("Cannot `extract_fraction` from a BedQuery object with unknown thickEnd".to_string())
+            )
+        }
+    };
+    let noncoding: bool = thick_start == thick_end;
+
+    let exon_sizes = match input.exon_sizes() {
+        Some(x) => {x},
+        None => {
+            return Err(
+                CubiculumError::MissingTraitError("Cannot `extract_fraction` from a BedQuery object with undefined exonSizes".to_string())
+            )
+        }
+    };
+
+    let exon_starts = match input.exon_starts() {
+        Some(x) => {x},
+        None => {
+            return Err(
+                CubiculumError::MissingTraitError("Cannot `extract_fraction` from a BedQuery object with undefined exonStarts".to_string())
+            )
+        }
+    };
+
+    if exon_sizes.len() != exon_starts.len() {
+        return Err(
+            CubiculumError::MissingTraitError(
+                format!("Received a BedEntry with {} exon start points and {} exon size values", exon_starts.len(), exon_sizes.len())
+            )
+        )
+    }
+
+    let strand: bool = match input.strand() {
+        Some(x) => {x},
+        None => {
+            return Err(
+                CubiculumError::MissingTraitError("Cannot `extract_fraction` from a BedQuery object with unknown strand".to_string())
+            )
+        }
+    };
+    let ex_num: u16 = exon_starts.len() as u16;
+
+    let mut upd_block_sizes: Vec<u64> = Vec::new();
+    let mut upd_block_starts: Vec<u64> = Vec::new();
+
+    let report_up: bool = strand && mode == BedFractionMode::Utr5 || !strand && mode == BedFractionMode::Utr3;
+    let report_down: bool = strand && mode == BedFractionMode::Utr3 || !strand && mode == BedFractionMode::Utr5;
+    let noncoding: bool = (thick_end - thick_start) == 0;
+    let report_coding: bool = !noncoding & (mode == BedFractionMode::Cds || mode == BedFractionMode::All);
+
+        // infer the new sequence's start position
+    let mut seq_start: u64 = match mode {
+        BedFractionMode::Cds => thick_start, // will not change down the road
+        // "3utr" => thick_end, // can be further set to the first 3'-UTR exon start
+        _ => thin_start 
+        // for "intron", will be set to the end of the first coding exon;
+        // for utr, can be set to the start of the 3'-UTR
+        // set in stone for 5utr 
+    };
+
+    // create storage objects for updated block coordinates
+    let mut upd_block_starts: Vec<u64> = Vec::new();
+    let mut upd_block_sizes: Vec<u64> = Vec::new();
+
+    let range: ops::Range<u16>= if intron {0..ex_num-1} else {0..ex_num};
+    if range.is_empty() {
+        return Ok(None)
+    };
+    for i in range {
+        let i: usize = i as usize;
+
+        let block_start: u64 = exon_starts[i] + thin_start;
+        let block_end: u64 = block_start + exon_sizes[i];
+
+        // first, check if the current block lies entirely within UTR
+        // save block coordinates if respective mode is set, continue otherwise
+        let upstream_to_cds: bool = block_end <= thick_start;
+        let downstream_to_cds: bool = block_start >= thick_end;
+        let upstream_and_report: bool = upstream_to_cds & (
+            mode == BedFractionMode::Utr || report_up || noncoding
+        );
+        let downstream_and_report: bool = downstream_to_cds & (
+            mode == BedFractionMode::Utr || report_down || noncoding
+        );
+        // current block is either completely upstream or completely downstream to CDS 
+        if upstream_to_cds || downstream_to_cds {
+            if upstream_and_report || downstream_and_report || mode == BedFractionMode::All {
+                if intron {
+                    // update the starting position for the intron track
+                    if upd_block_starts.len() == 0 {seq_start = block_end};
+                    upd_block_starts.push(block_end - seq_start);
+                    upd_block_sizes.push(exon_starts[i+1] + thin_start - block_end);
+                } else {
+                    // update the starting position if the needed sequence portion started only with 3'-UTR
+                    if downstream_to_cds && upd_block_starts.len() == 0 {
+                        seq_start = block_start - thin_start;
+                    }
+                    upd_block_starts.push(block_start - seq_start);
+                    upd_block_sizes.push(block_end - block_start);
+                }
+            };
+            continue;
+        }
+
+        // if we reached this point, the block belongs to
+        // the coding sequence, at least partially
+
+        // for 3'-UTR/5'-UTR on the negative strand, we can safely skip blocks up until the CDS end
+        if report_down && block_end <= thick_end {continue}; 
+
+        // for introns, boundaries are block end and next block's start
+        if intron & report_coding {
+            if upd_block_starts.len() == 0 {seq_start = block_end};
+            if block_end >= thick_end {break};
+            upd_block_starts.push(block_end - seq_start);
+            upd_block_sizes.push(exon_starts[i+1] + thin_start - block_end);
+            continue;
+        };
+
+        if mode == BedFractionMode::All {
+            upd_block_starts.push(block_start - seq_start);
+            upd_block_sizes.push(block_end - block_start);
+            continue
+        }
+
+        // for blocks overlapping with the coding sequence, assess their boundaries
+        let upd_block_start: u64 = cmp::max(block_start, thick_start);
+        let upd_block_end: u64 = cmp::min(block_end, thick_end);
+
+        // for 'cds' mode, save the updated coordinates
+        if mode == BedFractionMode::Cds {
+            upd_block_starts.push(upd_block_start - seq_start);
+            upd_block_sizes.push(upd_block_end - upd_block_start);
+            continue
+        }
+
+        // for UTR-related modes, clip the coding part and save the UTR bases
+        if (upd_block_start > block_start) & (mode == BedFractionMode::Utr || report_up) & !intron{
+                upd_block_starts.push(block_start - seq_start);
+                upd_block_sizes.push(upd_block_start - block_start);
+                // for 5'-UTR/3'-UTR on the negative strand, the loop can be safely exited
+                if report_up {break};
+                continue
+        }
+        if (upd_block_end < block_end) & (mode == BedFractionMode::Utr || report_down) {
+            if intron {
+                if upd_block_starts.len() == 0 {seq_start = block_end};
+                upd_block_starts.push(block_end - seq_start);
+                upd_block_sizes.push(exon_starts[i+1] + thin_start - block_end);
+            } else {
+                if upd_block_starts.len() == 0 {seq_start = upd_block_end};
+                upd_block_starts.push(upd_block_end - seq_start);
+                upd_block_sizes.push(block_end - upd_block_end);    
+            }
+        }
+        // // if the mode was set to 'utr' but no upstream UTR was found so far,
+        // // updating the starting point
+        // if (mode == "utr" || mode == "3utr") && upd_block_sizes.len() == 0 {
+        //     seq_start = thick_end
+        // }
+    };
+
+    assert!(upd_block_starts.len() == upd_block_sizes.len());
+    let upd_block_count: usize = upd_block_sizes.len();
+    if upd_block_count == 0 {return Ok(None)};
+
+    // set the start and end points
+    match (mode, intron) {
+        (BedFractionMode::All, false) => {
+            // pass
+        }
+        (BedFractionMode::Cds, false) => {
+            thin_start = thick_start;
+            thin_end = thick_end;
+        },
+        (BedFractionMode::Utr, false) => {
+            thick_end = thin_end;
+            thick_start = thick_end;
+        },
+        _ => {
+            thin_start = seq_start;
+            thin_end = seq_start + upd_block_starts[..].last().unwrap() + upd_block_sizes[..].last().unwrap();
+            thick_end = thin_end;
+            thick_start = thick_end;
+        }
+    };
+
+    let mut output = BedEntry::bed12(
+        match input.chrom().clone() {
+            Some(x) => {x.clone()},
+            None => {String::from("NA")}
+        },
+        thin_start,
+        thin_end,
+        match input.name().clone() {
+            Some(x) => {x.clone()},
+            None => {String::from("NA")}
+        },
+        match input.score().clone() {
+            Some(x) => {x.clone()},
+            None => {String::from("0")}
+        },
+        strand,
+        thick_start,
+        thick_end,
+        match input.rgb().clone() {
+            Some(x) => {x.clone()},
+            None => {String::from("NA")}
+        },
+        upd_block_count as u16,
+        upd_block_sizes,
+        upd_block_starts
+    );
+
+    Ok(Some(output))
+}
+
+#[cfg(test)]
+mod test_extract {
+    use super::*;
+
+    #[test]
+    fn intron_test() {
+        // tests the intron mode
+        let input: String = String::from("chr9	101360416	101385006	ENST00000259407.7#BAAT	0	-	101362427	101371404	0	4	2599,203,525,152,	0,7703,10522,24438,");
+        let expected: String = String::from("chr9	101363015	101370938	ENST00000259407.7#BAAT	0	-	101370938	101370938	0	2	5104,2616,	0,5307,");
+        let res = extract_fraction(
+            &parse_bed(input, 12, false).unwrap(),
+            BedFractionMode::All,
+            true
+        ).unwrap().unwrap();
+        assert_eq!(expected, to_line(res, 12).unwrap());
+
+        // assert_eq!(expected, bed_to_fraction(input, "cds", true, false).unwrap());
+    }
+}
+
+/// An optimized version of the above three functions for bed12ToFraction command line utility
 /// 
 /// # Arguments
 /// 
@@ -568,7 +842,7 @@ pub fn bed_to_fraction(
 // //////////////
 
 #[cfg(test)]
-mod test {
+mod test_cmd_function {
     use super::*;
 
     // PANIC TESTS
