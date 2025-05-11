@@ -802,6 +802,31 @@ impl Coordinates for Interval {
     }
 }
 
+impl<'a> Coordinates for  &'a Interval {
+// impl<'a, T> Coordinates for T 
+// where 
+//     &'a T: Coordinates
+// {
+    fn chrom(&self) -> Option<&String> {
+        self.chrom.as_ref()
+    }
+
+    fn start(&self) -> Option<&u64> {
+        self.start.as_ref()
+    }
+
+    fn end(&self) -> Option<&u64> {
+        self.end.as_ref()
+    }
+
+    fn length(&self) -> Option<u64> {
+        match (self.start, self.end) {
+            (Some(a), Some(b)) => {b.checked_sub(a)},
+            _ => None
+        }
+    }
+}
+
 impl Coordinates for BedEntry {
     fn chrom(&self) -> Option<&String> {
         self.chrom.as_ref()
@@ -817,6 +842,28 @@ impl Coordinates for BedEntry {
 
     fn length(&self) -> Option<u64> {
         match (self.thin_start, self.thin_end) {
+            (Some(a), Some(b)) => {b.checked_sub(a)},
+            _ => None
+        }
+    }
+}
+
+impl<'a> Coordinates for  &'a UtrBlock {
+
+    fn chrom(&self) -> Option<&String> {
+        self.chrom.as_ref()
+    }
+
+    fn start(&self) -> Option<&u64> {
+        self.start.as_ref()
+    }
+
+    fn end(&self) -> Option<&u64> {
+        self.end.as_ref()
+    }
+
+    fn length(&self) -> Option<u64> {
+        match (self.start, self.end) {
             (Some(a), Some(b)) => {b.checked_sub(a)},
             _ => None
         }
