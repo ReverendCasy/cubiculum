@@ -720,10 +720,13 @@ mod test_graft {
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum UtrSide {
     FivePrime,
     ThreePrime
 }
+
+#[derive(Clone, Debug)]
 pub struct UtrBlock {
     chrom: Option<String>,
     start: Option<u64>,
