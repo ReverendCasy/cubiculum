@@ -720,6 +720,54 @@ mod test_graft {
     }
 }
 
+pub enum UtrSide {
+    FivePrime,
+    ThreePrime
+}
+pub struct UtrBlock {
+    chrom: Option<String>,
+    start: Option<u64>,
+    end: Option<u64>,
+    name: Option<String>,
+    strand: Option<bool>,
+    side: Option<UtrSide>,
+    adjacent: Option<bool>
+}
+
+impl UtrBlock {
+    pub fn new() -> UtrBlock {
+        UtrBlock {chrom: None, start: None, end: None, name: None, strand: None, side: None, adjacent: None}
+    }
+
+    pub fn from_bed(source: &BedEntry) -> UtrBlock {
+        let mut result = UtrBlock::new();
+        if let Some(x) = source.chrom() {
+            result.chrom = Some(x.clone())
+        }
+        if let Some(x) = source.start() {
+            result.start = Some(*x)
+        }
+        if let Some(x) = source.end() {
+            result.end = Some(*x)
+        }
+        if let Some(x) = source.name() {
+            result.name = Some(x.clone())
+        }
+        if let Some(x) = source.strand() {
+            result.strand = Some(x)
+        }
+        result
+    }
+
+    pub fn set_side(&mut self, side: UtrSide) {
+        self.side = Some(side)
+    }
+
+    pub fn set_adjacency(&mut self, is_adjacent: bool) {
+        self.adjacent = Some(is_adjacent)
+    }
+}
+
 pub trait Coordinates{
     fn chrom(&self) -> Option<&String>;
 
@@ -772,8 +820,31 @@ impl Coordinates for BedEntry {
     }
 }
 
+impl Coordinates for UtrBlock {
+    fn chrom(&self) -> Option<&String> {
+        self.chrom.as_ref()
+    }
+
+    fn start(&self) -> Option<&u64> {
+        self.start.as_ref()
+    }
+
+    fn end(&self) -> Option<&u64> {
+        self.end.as_ref()
+    }
+
+    fn length(&self) -> Option<u64> {
+        match (self.start, self.end) {
+            (Some(a), Some(b)) => {b.checked_sub(a)},
+            _ => None
+        }
+    }
+}
+
 pub trait Named {
     fn name(&self) -> Option<&str>;
+
+    fn update_name(&mut self, new_name: &str);
 }
 
 impl Named for Interval {
@@ -783,6 +854,10 @@ impl Named for Interval {
             None => None
         }
     }
+
+    fn update_name(&mut self, new_name: &str ) {
+        self.name = Some(new_name.to_string());
+    }
 }
 
 impl Named for BedEntry{
@@ -791,5 +866,22 @@ impl Named for BedEntry{
             Some(x) => Some(x),
             None => None
         }
+    }
+
+    fn update_name(&mut self, new_name: &str ) {
+        self.name = Some(new_name.to_string());
+    }
+}
+
+impl Named for UtrBlock{
+    fn name(&self) -> Option<&str> {
+        match self.name.as_ref() {
+            Some(x) => Some(x),
+            None => None
+        }
+    }
+
+    fn update_name(&mut self, new_name: &str ) {
+        self.name = Some(new_name.to_string());
     }
 }
