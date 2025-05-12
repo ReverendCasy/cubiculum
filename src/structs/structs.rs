@@ -908,6 +908,35 @@ impl<'a> Coordinates for  &'a Interval {
     }
 }
 
+impl<'a> Coordinates for &'a BedEntry {
+    fn chrom(&self) -> Option<&String> {
+        self.chrom.as_ref()
+    }
+
+    fn start(&self) -> Option<&u64> {
+        self.thin_start.as_ref()
+    }
+
+    fn end(&self) -> Option<&u64> {
+        self.thin_end.as_ref()
+    }
+
+    fn reset_start(&mut self) {
+        // self.start = None;
+    }
+
+    fn reset_end(&mut self) {
+        // self.end = None;
+    }
+
+    fn length(&self) -> Option<u64> {
+        match (self.thin_start, self.thin_end) {
+            (Some(a), Some(b)) => {b.checked_sub(a)},
+            _ => None
+        }
+    }
+}
+
 impl Coordinates for BedEntry {
     fn chrom(&self) -> Option<&String> {
         self.chrom.as_ref()
