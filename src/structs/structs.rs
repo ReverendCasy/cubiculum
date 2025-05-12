@@ -523,21 +523,22 @@ impl BedEntry{
             if coding {thick_start = graft_start};
             // append the graft to the first block
             // first, increase the size of the first block
-            exon_sizes[0] += graft.length().unwrap();
+            // exon_sizes[0] += graft.length().unwrap();
             let mut grafted = false;
             for i in 0..exon_sizes.len() {
                 let exon_start = thin_start + exon_starts[i];
                 let exon_end =  exon_start + exon_sizes[i];
+                // println!("graft_len={}, graft_start={}, graft_end={}, exon_start={}, exon_end={}, thick_start={}, thick_end={}", graft_len, graft_start, graft_end, exon_start, exon_end, thick_start, thick_end);
                 if exon_end > thick_start && !grafted {
                     // check if exon has a non-coding fraction
                     if exon_start < thick_start {
                         if graft_start < exon_start {
-                            exon_sizes[i] += exon_start - graft_start;
+                            exon_sizes[i] = graft_start - min(graft_start, thin_start);
                             if i != 0 {exon_starts[i] = exon_start - graft_start;}
                         }
                     } else {
                         // just tilt the exon start and update its size
-                        exon_starts[i] -= graft_len;
+                        exon_starts[i] = graft_start - min(graft_start, thin_start);
                         exon_sizes[i] += graft_len;
                     }
                     grafted = true;
@@ -593,12 +594,15 @@ impl BedEntry{
             //     return None;
             // };
             let mut blocks = self.to_blocks().unwrap();
+            // println!("blocks={:#?}", blocks);
             blocks.push(BedEntry::from_interval(graft).unwrap());
             let merged_blocks = merge_multiple(&mut blocks);
             if merged_blocks.len() < exon_num as usize {
-                println!("Grafted interval overlaps some of the existing blocks. Consider setting allow overlap to allow merging blocks");
+                // println!("Grafted interval overlaps some of the existing blocks. Consider setting allow overlap to allow merging blocks");
                 return None;
             }
+            // println!("merged_blocks={:#?},\nmerged_blocks.len()={}", merged_blocks, merged_blocks.len());
+            // println!("blocks.len()={}, merged_blocks.len()={}", blocks.len(), merged_blocks.len());
             exon_sizes.clear();
             exon_starts.clear();
             thin_start = min(thin_start, graft_start);
@@ -716,7 +720,64 @@ mod test_graft {
             true
         );
         println!("{:#?}", input);
-        println!("{:#?}", to_line(&input, 12));
+        println!("{}", to_line(&input, 12).unwrap());
+    }
+
+    #[test]
+    fn test_graft_both() {
+        let input_line = String::from(
+            "chr4	49489819	49503120	ENST00000259407.7#BAAT#20	0	-	49489819	49503120	0,0,100	3	594,203,466,	0,9816,12835,"
+        );
+        let mut input = parse_bed(input_line, 12, false).unwrap();
+        let graft1 = parse_bed(
+            String::from(
+                "chr4	49472245	49489819	ENST00000259407.7#BAAT|0	0	-"
+            ),
+            6,
+            false
+        ).unwrap();
+        let grafted = input.graft(
+            graft1, 
+            true, 
+            true, 
+            false, 
+            false, 
+            true, 
+            false
+        );
+        println!("{}", to_line(&input, 12).unwrap());
+        
+        let graft2 = parse_bed(
+            String::from("chr4	49503120	49503179	ENST00000259407.7#BAAT|1	0	-"),
+            6,
+            false
+        ).unwrap();
+        let grafted = input.graft(
+            graft2, 
+            true, 
+            true, 
+            false, 
+            false, 
+            false, 
+            true
+        );
+        println!("{}", to_line(&input, 12).unwrap());
+
+        let graft3 = parse_bed(
+            String::from("chr4	49506738	49510808	ENST00000259407.7#BAAT|2	0	-"),
+            6,
+            false
+        ).unwrap();
+        let grafted = input.graft(
+            graft3, 
+            true, 
+            true, 
+            false, 
+            false, 
+            false, 
+            false
+        );
+        println!("{}", to_line(&input, 12).unwrap());
     }
 }
 
