@@ -716,7 +716,7 @@ mod test_graft {
             true
         );
         println!("{:#?}", input);
-        println!("{:#?}", to_line(input, 12));
+        println!("{:#?}", to_line(&input, 12));
     }
 }
 

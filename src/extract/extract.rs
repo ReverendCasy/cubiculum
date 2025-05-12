@@ -168,7 +168,7 @@ If you want to parse an incomplete BED entry, consider BED9 format instead"
 /// # Returns
 /// A Result containing a String representation of the input BedEntry
 /// 
-pub fn to_line(bed_entry: BedEntry, format: u8) -> Result<String, CubiculumError> {
+pub fn to_line(bed_entry: &BedEntry, format: u8) -> Result<String, CubiculumError> {
     let entry_format = match bed_entry.format() {
         0 => {return Err(CubiculumError::MissingTraitError("Undefined BED format for the entry".to_string()))}
         x  => {x},
@@ -374,9 +374,6 @@ pub fn extract_fraction(input: &BedEntry, mode: BedFractionMode, intron: bool) -
     };
     let ex_num: u16 = exon_starts.len() as u16;
 
-    let mut upd_block_sizes: Vec<u64> = Vec::new();
-    let mut upd_block_starts: Vec<u64> = Vec::new();
-
     let report_up: bool = strand && mode == BedFractionMode::Utr5 || !strand && mode == BedFractionMode::Utr3;
     let report_down: bool = strand && mode == BedFractionMode::Utr3 || !strand && mode == BedFractionMode::Utr5;
     let noncoding: bool = (thick_end - thick_start) == 0;
@@ -563,7 +560,7 @@ mod test_extract {
             BedFractionMode::All,
             true
         ).unwrap().unwrap();
-        assert_eq!(expected, to_line(res, 12).unwrap());
+        assert_eq!(expected, to_line(&res, 12).unwrap());
 
         // assert_eq!(expected, bed_to_fraction(input, "cds", true, false).unwrap());
     }
