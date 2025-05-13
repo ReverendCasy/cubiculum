@@ -538,7 +538,9 @@ impl BedEntry{
                         }
                     } else {
                         // just tilt the exon start and update its size
-                        exon_starts[i] = min(graft_start, thick_start) - thin_start;
+                        exon_starts[i] = if i == 0 {0} else {
+                            min(graft_start, thick_start) - thin_start
+                        };
                         exon_sizes[i] += exon_start - graft_start;
                         graft_len = exon_start - graft_start;
                     }
