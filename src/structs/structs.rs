@@ -576,7 +576,7 @@ impl BedEntry{
                             exon_sizes[i] += graft_end - thick_end;
                         }
                     } else {
-                        exon_sizes[i] += graft_len;
+                        exon_sizes[i] += graft_end - thick_end;
                     }
                     // further exons will not be affected; feel free to break
                     break
@@ -778,6 +778,33 @@ mod test_graft {
             false
         );
         println!("{}", to_line(&input, 12).unwrap());
+    }
+
+
+    #[test]
+    fn test_graft_downstream() {
+        let mut input = parse_bed(
+            String::from("chr4	136609684	136613103	ENST00000566855.4#TEX46#5	0	+	136609684	136613103	0,0,200	3	2,160,210,	0,843,3209,"),
+            12,
+            false
+        ).unwrap();
+        let graft = parse_bed(
+            String::from("chr4	136613095	136613132	ENST00000566855.4#TEX46|1	0	+"),
+            6,
+            false
+        ).unwrap();
+        let result = input.graft(
+            graft,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true
+        ).unwrap();
+        println!(
+            "{}", to_line(&result, 12).unwrap()
+        );
     }
 }
 
