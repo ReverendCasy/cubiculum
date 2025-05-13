@@ -473,48 +473,48 @@ impl BedEntry{
         };
         let mut thick_start = match self.thick_start {
             Some(x) => {x},
-            None => {panic!("Undefined thickStart value for BED12")}
+            None => {panic!("CRITICAL: Undefined thickStart value for BED12")}
         };
         let mut thin_end = match self.thin_end {
             Some(x) => {x},
-            None => {panic!("Undefined thinEnd value for BED12")}
+            None => {panic!("CRITICAL: Undefined thinEnd value for BED12")}
         };
         let mut thick_end = match self.thick_end {
             Some(x) => {x},
-            None => {panic!("Undefined thickEnd value for BED12")}
+            None => {panic!("CRITICAL: Undefined thickEnd value for BED12")}
         };
         
         let mut exon_num = match self.exon_num {
             Some(x) => {x},
-            None => {panic!("Exon number is not defined for the BED12 object")}
+            None => {panic!("CRITICAL: Exon number is not defined for the BED12 object")}
         };
 
         let mut exon_sizes = match &mut self.exon_sizes {
             Some(x) => {x.clone()},
-            None => {panic!("Exon sizes are not defined for the BED12 object")}
+            None => {panic!("CRITICAL: Exon sizes are not defined for the BED12 object")}
         };
         let mut exon_starts = match &mut self.exon_starts {
             Some(x) => {x.clone()},
-            None => {panic!("Exon starts are not defined for the BED12 object")}
+            None => {panic!("CRITICAL: Exon starts are not defined for the BED12 object")}
         };
 
         let graft_start = match graft.start() {
             Some(x) => {*x},
-            None => {panic!("Undefined start coordinate for a grafted interval")}
+            None => {panic!("CRITICAL: Undefined start coordinate for a grafted interval")}
         };
         let graft_end = match graft.end() {
             Some(x) => {*x},
-            None => {panic!("Undefined end coordinate for a grafted interval")}
+            None => {panic!("CRITICAL: Undefined end coordinate for a grafted interval")}
         };
         let graft_len = graft.length().unwrap();
 
         // for appending upstream, only the start coordinate actually matters
         if append_upstream {
             if coding && thin_start != thick_start {
-                panic!("Attempting to graft a coding block to a sequence with non-coding upstream fraction")
+                panic!("CRITICAL: Attempting to graft a coding block to a sequence with non-coding upstream fraction")
             }
             if !coding && graft_start > thick_start {
-                println!("Graft start coordinate lies within the coding sequence");
+                println!("WARNING: Graft start coordinate lies within the coding sequence");
                 return None;
             };
             // update the start coordinate(s)
@@ -555,10 +555,10 @@ impl BedEntry{
         } else if append_downstream {
         // the reverse is true for downstream appending
             if coding && thin_end != thick_end {
-                panic!("Attempting to graft a coding block to a sequence with non-coding downstream fraction")
+                panic!("CRITICAL: Attempting to graft a coding block to a sequence with non-coding downstream fraction")
             }
             if !coding && graft_end < thick_end {
-                println!("Graft end coordinate lies within the coding sequence");
+                println!("WARNING: Graft end coordinate lies within the coding sequence");
                 return None;
             };
             // update the start coordinate(s)
