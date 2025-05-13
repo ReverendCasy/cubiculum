@@ -504,10 +504,10 @@ pub fn extract_fraction(input: &BedEntry, mode: BedFractionMode, intron: bool) -
             thin_start = thick_start;
             thin_end = thick_end;
         },
-        (BedFractionMode::Utr, false) => {
-            thick_end = thin_end;
-            thick_start = thick_end;
-        },
+        // (BedFractionMode::Utr, false) => {
+        //     thick_end = thin_end;
+        //     thick_start = thick_end;
+        // },
         _ => {
             thin_start = seq_start;
             thin_end = seq_start + upd_block_starts[..].last().unwrap() + upd_block_sizes[..].last().unwrap();
@@ -782,10 +782,10 @@ pub fn bed_to_fraction(
             thin_start = thick_start;
             thin_end = thick_end;
         },
-        (BedFractionMode::Utr, false) => {
-            thick_end = thin_end;
-            thick_start = thick_end;
-        },
+        // (BedFractionMode::Utr, false) => {
+        //     thick_end = thin_end;
+        //     thick_start = thick_end;
+        // },
         _ => {
             thin_start = seq_start;
             thin_end = seq_start + upd_block_starts[..].last().unwrap() + upd_block_sizes[..].last().unwrap();
@@ -840,6 +840,8 @@ pub fn bed_to_fraction(
 
 #[cfg(test)]
 mod test_cmd_function {
+    use crate::extract::extract;
+
     use super::*;
 
     // PANIC TESTS

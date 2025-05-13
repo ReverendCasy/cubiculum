@@ -535,6 +535,7 @@ impl BedEntry{
                         if graft_start < exon_start {
                             exon_sizes[i] += exon_start - min(graft_start, exon_start);
                             if i != 0 {exon_starts[i] = min(graft_start, exon_start) - thin_start;}
+                            graft_len = exon_start - min(graft_start, exon_start);
                         }
                     } else {
                         // just tilt the exon start and update its size
@@ -542,7 +543,7 @@ impl BedEntry{
                             min(graft_start, thick_start) - thin_start
                         };
                         exon_sizes[i] += exon_start - graft_start;
-                        graft_len = exon_start - graft_start;
+                        graft_len = exon_start - min(graft_start, exon_start)
                     }
                     grafted = true;
                     // potentially, nothing will happen further; break the loop
@@ -573,7 +574,7 @@ impl BedEntry{
                 let exon_start = thin_start + exon_starts[i];
                 let exon_end =  exon_start + exon_sizes[i];
                 if exon_start < thick_end {
-                    // first coding exon caught
+                    // first (last) coding exon caught
                     if exon_end > thick_end {
                         if graft_end > thick_end {
                             exon_sizes[i] += graft_end - max(thick_end, graft_start);
