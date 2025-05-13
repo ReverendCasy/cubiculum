@@ -506,7 +506,7 @@ impl BedEntry{
             Some(x) => {*x},
             None => {panic!("CRITICAL: Undefined end coordinate for a grafted interval")}
         };
-        let graft_len = graft.length().unwrap();
+        let mut graft_len = graft.length().unwrap();
 
         // for appending upstream, only the start coordinate actually matters
         if append_upstream {
@@ -533,20 +533,21 @@ impl BedEntry{
                     // check if exon has a non-coding fraction
                     if exon_start < thick_start {
                         if graft_start < exon_start {
-                            exon_sizes[i] = graft_start - min(graft_start, thin_start);
-                            if i != 0 {exon_starts[i] = exon_start - graft_start;}
+                            exon_sizes[i] += exon_start - min(graft_start, exon_start);
+                            if i != 0 {exon_starts[i] = min(graft_start, exon_start) - thin_start;}
                         }
                     } else {
                         // just tilt the exon start and update its size
-                        exon_starts[i] = graft_start - min(graft_start, thin_start);
-                        exon_sizes[i] += graft_len;
+                        exon_starts[i] = min(graft_start, thick_start) - thin_start;
+                        exon_sizes[i] += exon_start - graft_start;
+                        graft_len = exon_start - graft_start;
                     }
                     grafted = true;
                     // potentially, nothing will happen further; break the loop
                     if !updated_start {break}
                 } else {
                     if updated_start {
-                        exon_starts[i] += thin_start - graft_start;
+                        exon_starts[i] += graft_len//thin_start - graft_start;
                     }
                 }
                 // exon_starts[i] += graft_len;
@@ -573,7 +574,7 @@ impl BedEntry{
                     // first coding exon caught
                     if exon_end > thick_end {
                         if graft_end > thick_end {
-                            exon_sizes[i] += graft_end - thick_end;
+                            exon_sizes[i] += graft_end - max(thick_end, graft_start);
                         }
                     } else {
                         exon_sizes[i] += graft_end - thick_end;
