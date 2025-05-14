@@ -576,7 +576,7 @@ impl BedEntry{
                 if exon_start < thick_end {
                     // first (last) coding exon caught
                     if exon_end > thick_end {
-                        if graft_end > thick_end {
+                        if graft_end > thin_end {
                             exon_sizes[i] += graft_end - max(thick_end, graft_start);
                         }
                     } else {
@@ -598,10 +598,11 @@ impl BedEntry{
             //     return None;
             // };
             let mut blocks = self.to_blocks().unwrap();
+            let unmerged_block_num = blocks.len();
             // println!("blocks={:#?}", blocks);
             blocks.push(BedEntry::from_interval(graft).unwrap());
             let merged_blocks = merge_multiple(&mut blocks);
-            if merged_blocks.len() < exon_num as usize {
+            if merged_blocks.len() < unmerged_block_num as usize {
                 // println!("Grafted interval overlaps some of the existing blocks. Consider setting allow overlap to allow merging blocks");
                 return None;
             }
@@ -809,6 +810,70 @@ mod test_graft {
         println!(
             "{}", to_line(&result, 12).unwrap()
         );
+    }
+
+    #[test]
+    fn graft_both_with_overlaps() {
+        let mut input = parse_bed(
+            String::from("chr10	81321231	81325954	ENST00000248420.9#CACTIN#261	0	+	81321231	81325954	0,0,100	9	215,568,146,163,115,193,120,287,491,	0,1206,1889,2387,2678,3071,3637,3858,4232,"),
+            12,
+            false
+        ).unwrap();
+        let graft_up = parse_bed(
+            String::from("chr10\t81321176\t81321231\tENST00000248420.9#CACTIN\t0\t+"),
+            6,
+            false
+        ).unwrap();
+        let grafted_up = input.graft(
+            graft_up, 
+            false, 
+            true, 
+            false, 
+            false, 
+            true, 
+            false
+        ).unwrap();
+        println!(
+            "{}", to_line(&grafted_up, 12).unwrap()
+        );
+
+        let graft_down1 = parse_bed(
+            String::from("chr10\t81325913\t81326232\tENST00000248420.9#CACTIN|2\t0\t+"),
+            6,
+            false
+        ).unwrap();
+        let mut grafted_down1 = input.graft(
+            graft_down1, 
+            false, 
+            true, 
+            true, 
+            false, 
+            false, 
+            false
+        ).unwrap();
+        println!(
+            "{}", to_line(&grafted_down1, 12).unwrap()
+        );
+
+        let graft_down2 = parse_bed(
+            String::from("chr10\t81325954\t81325973\tENST00000248420.9#CACTIN|1\t0\t+"), 
+            6, 
+            false
+        ).unwrap();
+        let grafted_down2 = grafted_down1.graft(
+            graft_down2, 
+            false, 
+            true, 
+            true, 
+            false, 
+            false, 
+            true
+        ).unwrap();
+        println!(
+            "{}", to_line(&grafted_down2, 12).unwrap()
+        );
+
+
     }
 }
 
