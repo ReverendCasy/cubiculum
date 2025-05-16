@@ -877,7 +877,7 @@ mod test_graft {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum UtrSide {
     FivePrime,
     ThreePrime
