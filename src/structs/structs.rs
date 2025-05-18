@@ -283,6 +283,22 @@ impl BedEntry{
         self.thin_start = Some(thin_start)
     }
 
+    /// Returns the length sum for all the blocks
+    /// 
+    pub fn block_length(&self) -> u64 {
+        if self.format() < 12 {
+            return match (self.thin_start(), self.thin_end()) {
+                (Some(x), Some(y)) => {y - x},
+                _ => {0}
+            };
+        }
+        let mut length_sum: u64 = 0;
+        for x in self.exon_sizes().unwrap() {
+            length_sum += *x
+        }
+        return length_sum;
+    }
+
     pub fn to_interval(&mut self) -> Interval {
         Interval::from(
             self.chrom.clone(),
