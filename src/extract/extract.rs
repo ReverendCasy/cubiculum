@@ -471,7 +471,7 @@ pub fn extract_fraction(input: &BedEntry, mode: BedFractionMode, intron: bool) -
                 upd_block_sizes.push(upd_block_start - block_start);
                 // for 5'-UTR/3'-UTR on the negative strand, the loop can be safely exited
                 if report_up {break};
-                continue
+                // continue
         }
         if (upd_block_end < block_end) & (mode == BedFractionMode::Utr || report_down) {
             if intron {
@@ -563,6 +563,17 @@ mod test_extract {
         assert_eq!(expected, to_line(&res, 12).unwrap());
 
         // assert_eq!(expected, bed_to_fraction(input, "cds", true, false).unwrap());
+    }
+
+    #[test]
+    fn double_utr_test() {
+        let input = String::from("chr1	204617169	204685738	ENST00000367177.4#LRRN2	0	-	204617850	204619992	0	2	3049,419,	0,68150,");
+        let res = extract_fraction(
+            &parse_bed(input, 12, false).unwrap(),
+            BedFractionMode::Utr,
+            false
+        ).unwrap().unwrap();
+        println!("{}", to_line(&res, 12).unwrap());
     }
 }
 
@@ -749,7 +760,7 @@ pub fn bed_to_fraction(
                 upd_block_sizes.push(upd_block_start - block_start);
                 // for 5'-UTR/3'-UTR on the negative strand, the loop can be safely exited
                 if report_up {break};
-                continue
+                // continue
         }
         if (upd_block_end < block_end) & (mode == BedFractionMode::Utr || report_down) {
             if intron {
