@@ -377,7 +377,7 @@ pub fn extract_fraction(input: &BedEntry, mode: BedFractionMode, intron: bool) -
     let report_up: bool = strand && mode == BedFractionMode::Utr5 || !strand && mode == BedFractionMode::Utr3;
     let report_down: bool = strand && mode == BedFractionMode::Utr3 || !strand && mode == BedFractionMode::Utr5;
     let noncoding: bool = (thick_end - thick_start) == 0;
-    let report_coding: bool = !noncoding & (mode == BedFractionMode::Cds || mode == BedFractionMode::All);
+    let report_coding: bool = !noncoding & (mode == BedFractionMode::Cds);// || mode == BedFractionMode::All);
 
         // infer the new sequence's start position
     let mut seq_start: u64 = match mode {
@@ -440,17 +440,23 @@ pub fn extract_fraction(input: &BedEntry, mode: BedFractionMode, intron: bool) -
         if report_down && block_end <= thick_end {continue}; 
 
         // for introns, boundaries are block end and next block's start
-        if intron & report_coding {
+        if intron  {
             if upd_block_starts.len() == 0 {seq_start = block_end};
-            if block_end >= thick_end {break};
+            if (block_end >= thick_end) & report_coding {break};
             upd_block_starts.push(block_end - seq_start);
             upd_block_sizes.push(exon_starts[i+1] + thin_start - block_end);
             continue;
         };
 
         if mode == BedFractionMode::All {
-            upd_block_starts.push(block_start - seq_start);
-            upd_block_sizes.push(block_end - block_start);
+            // if intron {
+            //     if upd_block_starts.len() == 0 {seq_start = block_end};
+            //     upd_block_starts.push(block_end - seq_start);
+            //     upd_block_sizes.push(exon_starts[i+1] + thin_start - block_end);
+            // } else {
+                upd_block_starts.push(block_start - seq_start);
+                upd_block_sizes.push(block_end - block_start);
+            // }
             continue
         }
 
@@ -553,8 +559,8 @@ mod test_extract {
     #[test]
     fn intron_test() {
         // tests the intron mode
-        let input: String = String::from("chr9	101360416	101385006	ENST00000259407.7#BAAT	0	-	101362427	101371404	0	4	2599,203,525,152,	0,7703,10522,24438,");
-        let expected: String = String::from("chr9	101363015	101370938	ENST00000259407.7#BAAT	0	-	101370938	101370938	0	2	5104,2616,	0,5307,");
+        let input: String = String::from("chr9	101360416	101385006	A	0	-	101362427	101371404	0	4	2599,203,525,152,	0,7703,10522,24438,");
+        let expected: String = String::from("chr9	101363015	101370938	A	0	-	101370938	101370938	0	2	5104,2616,	0,5307,");
         let res = extract_fraction(
             &parse_bed(input, 12, false).unwrap(),
             BedFractionMode::All,
@@ -567,12 +573,25 @@ mod test_extract {
 
     #[test]
     fn double_utr_test() {
-        let input = String::from("chr1	204617169	204685738	ENST00000367177.4#LRRN2	0	-	204617850	204619992	0	2	3049,419,	0,68150,");
+        let input = String::from("chr1	204617169	204685738	A	0	-	204617850	204619992	0	2	3049,419,	0,68150,");
         let res = extract_fraction(
             &parse_bed(input, 12, false).unwrap(),
             BedFractionMode::Utr,
             false
         ).unwrap().unwrap();
+        println!("{}", to_line(&res, 12).unwrap());
+    }
+
+    #[test]
+    fn all_intron_test() {
+        let input = String::from("chr19	14789259	14835285	A	0	-	14799173	14800136	0	3	10890,188,212,	0,20546,45814,");
+        let res = extract_fraction(
+            &parse_bed(input, 12, false).unwrap(),
+            BedFractionMode::All,
+            true
+        )
+            .unwrap()
+            .unwrap();
         println!("{}", to_line(&res, 12).unwrap());
     }
 }
