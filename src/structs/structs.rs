@@ -460,8 +460,10 @@ impl BedEntry{
     pub fn graft<T>(
         &mut self, graft: T, inplace: bool,
         chrom_compatible: bool,
-        allow_overlaps: bool, coding: bool,
-        append_upstream: bool, append_downstream: bool,
+        allow_overlaps: bool, 
+        coding: bool,
+        append_upstream: bool, 
+        append_downstream: bool,
     ) -> Option<BedEntry> 
     where
         T: Coordinates + Clone
@@ -614,11 +616,18 @@ impl BedEntry{
             //     return None;
             // };
             let mut blocks = self.to_blocks().unwrap();
-            let unmerged_block_num = blocks.len();
             // println!("blocks={:#?}", blocks);
             blocks.push(BedEntry::from_interval(graft).unwrap());
+            let unmerged_block_num = blocks.len();
+            blocks.sort_by(
+                |a, b| if a.start().unwrap() == b.start().unwrap() {
+                    a.end().unwrap().cmp(&b.end().unwrap())
+                } else {
+                    a.start().unwrap().cmp(&b.start().unwrap())
+                }
+            );
             let merged_blocks = merge_multiple(&mut blocks);
-            if merged_blocks.len() < unmerged_block_num as usize {
+            if merged_blocks.len() < unmerged_block_num as usize && !allow_overlaps {
                 // println!("Grafted interval overlaps some of the existing blocks. Consider setting allow overlap to allow merging blocks");
                 return None;
             }
@@ -888,8 +897,37 @@ mod test_graft {
         println!(
             "{}", to_line(&grafted_down2, 12).unwrap()
         );
+    }
 
-
+    #[test]
+    pub fn graft_problematic1() {
+        let mut input = parse_bed(
+            String::from("chr5	33379227	33414891	A	0	+	33379227	33414891	0,0,100	13	98,331,121,396,113,129,106,172,123,184,112,175,94,	0,8428,9488,10414,12516,12828,23266,29581,30199,31631,32333,34671,35570,"),
+            12,
+            false
+        ).unwrap();
+        let graft1 = parse_bed(
+            String::from("chr5\t33378734\t33379277\t0\t0\t+"),
+            6,
+            false
+        ).unwrap();
+        let _ = input.graft(
+            graft1,
+            true,
+            true, 
+            true, 
+            false, 
+            false, 
+            false
+        );
+        println!(
+            "{}", to_line(&input, 12).unwrap()
+        );
+        let graft2 = parse_bed(
+            String::from("chr5\t33379225\t33379227\t1\t0\t+"),
+            6,
+            false
+        );
     }
 }
 

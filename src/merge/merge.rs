@@ -122,7 +122,7 @@ where
         } else {
             a.start().unwrap().cmp(&b.start().unwrap())
         }
-        );
+    );
     out_vec
 }
 

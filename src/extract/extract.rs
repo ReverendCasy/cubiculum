@@ -594,6 +594,19 @@ mod test_extract {
             .unwrap();
         println!("{}", to_line(&res, 12).unwrap());
     }
+
+    #[test]
+    fn uu() {
+        let input = String::from("chr14	96797381	96881609	ENST00000216639.8#VRK1	0	+	96833471	96881208	0	13	66,165,56,70,88,109,93,133,121,59,179,91,433,	0,36085,40380,48713,49875,55449,55692,57842,58748,59146,63175,78648,83795,");
+        let res = extract_fraction(
+            &parse_bed(input, 12, false).unwrap(),
+            BedFractionMode::All,
+            true
+        )
+            .unwrap()
+            .unwrap();
+        println!("{}", to_line(&res, 12).unwrap());
+    }
 }
 
 /// An optimized version of the above three functions for bed12ToFraction command line utility
