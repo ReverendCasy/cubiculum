@@ -526,6 +526,9 @@ impl BedEntry{
         };
         let mut graft_len = graft.length().unwrap();
 
+        // keep track on whether the final block should be merged
+        let mut to_merge = false;
+
         // for appending upstream, only the start coordinate actually matters
         if append_upstream {
             if coding && thin_start != thick_start {
@@ -546,6 +549,9 @@ impl BedEntry{
             for i in 0..exon_sizes.len() {
                 let exon_start = thin_start + exon_starts[i];
                 let exon_end =  exon_start + exon_sizes[i];
+                if exon_start <= graft_start && graft_start <= exon_end {
+                    if allow_overlaps {to_merge = true} else {return None}
+                }
                 // println!("graft_len={}, graft_start={}, graft_end={}, exon_start={}, exon_end={}, thick_start={}, thick_end={}", graft_len, graft_start, graft_end, exon_start, exon_end, thick_start, thick_end);
                 if exon_end > thick_start && !grafted {
                     // check if exon has a non-coding fraction
@@ -591,6 +597,9 @@ impl BedEntry{
                 i = exon_sizes.len() - i - 1;
                 let exon_start = thin_start + exon_starts[i];
                 let exon_end =  exon_start + exon_sizes[i];
+                if exon_start <= graft_end && graft_end <= exon_end {
+                    if allow_overlaps {to_merge = true} else {return None}
+                }
                 if exon_start < thick_end {
                     // first (last) coding exon caught
                     if exon_end > thick_end {
@@ -606,7 +615,10 @@ impl BedEntry{
             }
             // exon start positions will not change in this case though
             thin_end = max(graft_end, thin_end);
-        } else {
+        } else { // grafting to the exact position requires invoking the merge_multiple() function 
+            to_merge = true
+        }
+        if to_merge{
             // if graft_start > thin_start {
             //     println!("Graft start coordinate lies within the coding sequence");
             //     return None;
