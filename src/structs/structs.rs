@@ -366,19 +366,19 @@ impl BedEntry{
             Some(x) => {x},
             None => {return None}
         };
-        let new_thin_start: u64 = match start {
+        let mut new_thin_start: u64 = match start {
             Some(x) => {max(self.thin_start.unwrap(), x)},
             None => self.thin_start.unwrap()
         };
-        let new_thin_end: u64 = match end {
+        let mut new_thin_end: u64 = match end {
             Some(x) => {min(self.thin_end.unwrap(), x)},
             None => {self.thin_end.unwrap()}
         };
-        let new_thick_start = match self.thick_start {
+        let mut new_thick_start = match self.thick_start {
             Some(x) => {max(x, new_thin_start)},
             None => {new_thin_start}
         };
-        let new_thick_end = match self.thick_end {
+        let mut new_thick_end = match self.thick_end {
             Some(x) => {min(x, new_thin_end)},
             None => {new_thin_end}
         };
@@ -393,11 +393,19 @@ impl BedEntry{
                     let ex_end: u64 = y[i] + ex_start;
                     if ex_end < new_thin_start {continue};
                     let new_ex_start = max(new_thin_start, ex_start);
+                    if new_ex_start > new_thin_start {
+                        new_thin_start = new_ex_start;
+                        new_thick_start = max(new_thin_start, new_thick_start);
+                    }
                     let new_ex_size = match min(ex_end, new_thin_end).checked_sub(new_ex_start){
                         Some(x) => {if x == 0 {continue} else {x}},
                         None => {continue} 
                     };
-
+                    let new_ex_end = new_ex_start + new_ex_size;
+                    if new_ex_end < new_thin_end {
+                        new_thin_end = new_ex_end;
+                        new_thick_end = min(new_thin_end, new_thick_end);
+                    }
                     _sizes.push(new_ex_size);
                     _starts.push(new_ex_start - new_thin_start);
                     ex_counter += 1;

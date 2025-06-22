@@ -1,6 +1,6 @@
 [package]
 name = "cubiculum"
-version = "0.1.40"
+version = "0.1.41"
 authors = ["Yury V. Malovichko <iurii.malovichko@gmail.com>"]
 resolver = "2"
 edition = "2021"

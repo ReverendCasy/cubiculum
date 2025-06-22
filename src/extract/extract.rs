@@ -597,11 +597,11 @@ mod test_extract {
 
     #[test]
     fn uu() {
-        let input = String::from("chr14	96797381	96881609	ENST00000216639.8#VRK1	0	+	96833471	96881208	0	13	66,165,56,70,88,109,93,133,121,59,179,91,433,	0,36085,40380,48713,49875,55449,55692,57842,58748,59146,63175,78648,83795,");
+        let input = String::from("chr18	63907957	63936111	A	0	+	63915510	63935242	0	8	83,177,66,138,118,143,156,1274,	0,7544,9498,10007,11830,22087,25090,26880,");
         let res = extract_fraction(
             &parse_bed(input, 12, false).unwrap(),
-            BedFractionMode::All,
-            true
+            BedFractionMode::Utr,
+            false
         )
             .unwrap()
             .unwrap();
