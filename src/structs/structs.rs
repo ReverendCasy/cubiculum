@@ -393,19 +393,19 @@ impl BedEntry{
                     let ex_end: u64 = y[i] + ex_start;
                     if ex_end < new_thin_start {continue};
                     let new_ex_start = max(new_thin_start, ex_start);
-                    if new_ex_start >= new_thin_start {
-                        new_thin_start = new_ex_start;
-                        new_thick_start = max(new_thin_start, new_thick_start);
-                    }
+                    // if new_ex_start >= new_thin_start {
+                    //     new_thin_start = new_ex_start;
+                    //     new_thick_start = max(new_thin_start, new_thick_start);
+                    // }
                     let new_ex_size = match min(ex_end, new_thin_end).checked_sub(new_ex_start){
                         Some(x) => {if x == 0 {continue} else {x}},
                         None => {continue} 
                     };
-                    let new_ex_end = new_ex_start + new_ex_size;
-                    if new_ex_end <= new_thin_end {
-                        new_thin_end = new_ex_end;
-                        new_thick_end = min(new_thin_end, new_thick_end);
-                    }
+                    // let new_ex_end = new_ex_start + new_ex_size;
+                    // if new_ex_end <= new_thin_end {
+                    //     new_thin_end = new_ex_end;
+                    //     new_thick_end = min(new_thin_end, new_thick_end);
+                    // }
                     _sizes.push(new_ex_size);
                     _starts.push(new_ex_start - new_thin_start);
                     ex_counter += 1;
