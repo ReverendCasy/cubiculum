@@ -412,7 +412,10 @@ impl BedEntry{
                     _starts.push(new_ex_start - new_thin_start);
                     ex_counter += 1;
                 }
-                last_exon_end = new_thin_end + _starts[(ex_counter - 1) as usize] + _sizes[(ex_counter - 1) as usize];
+                if ex_counter > 0 {
+                    last_exon_end = new_thin_start + _starts[(ex_counter - 1) as usize] + 
+                        _sizes[(ex_counter - 1) as usize]
+                }
                 (Some(ex_counter), Some(_sizes), Some(_starts))
             },
             _ => {(None, None, None)}
