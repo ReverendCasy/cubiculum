@@ -382,6 +382,7 @@ impl BedEntry{
             Some(x) => {min(x, new_thin_end)},
             None => {new_thin_end}
         };
+        let mut last_exon_end = new_thin_end;
         let (new_ex_num, new_ex_sizes, new_ex_starts) = match (self.exon_num, &self.exon_sizes, &self.exon_starts) {
             (Some(x), Some(y), Some(z)) => {
                 let mut ex_counter: u16 = 0;
@@ -403,18 +404,21 @@ impl BedEntry{
                         None => {continue} 
                     };
                     // let new_ex_end = new_ex_start + new_ex_size;
-                    if new_ex_end <= new_thin_end {
-                        new_thin_end = new_ex_end;
-                        new_thick_end = min(new_thin_end, new_thick_end);
-                    }
+                    // if new_ex_end <= new_thin_end {
+                    //     new_thin_end = new_ex_end;
+                    //     new_thick_end = min(new_thin_end, new_thick_end);
+                    // }
                     _sizes.push(new_ex_size);
                     _starts.push(new_ex_start - new_thin_start);
                     ex_counter += 1;
                 }
+                last_exon_end = new_thin_end + _starts[(ex_counter - 1) as usize] + _sizes[(ex_counter - 1) as usize];
                 (Some(ex_counter), Some(_sizes), Some(_starts))
             },
             _ => {(None, None, None)}
         };
+        new_thin_end = min(new_thin_end, last_exon_end);
+        new_thick_end = min(new_thin_end, new_thick_end);
         if inplace {
             self.thin_start = Some(new_thin_start);
             self.thin_end = Some(new_thin_end);
