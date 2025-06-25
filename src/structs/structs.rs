@@ -630,8 +630,11 @@ impl BedEntry{
                 i = exon_sizes.len() - i - 1;
                 let exon_start = thin_start + exon_starts[i];
                 let exon_end =  exon_start + exon_sizes[i];
-                if exon_start <= graft_end && graft_end <= exon_end {
-                    if allow_overlaps {to_merge = true} else {return None}
+                if !to_merge {
+                    let inter_ = intersection(exon_start, exon_end, graft_start, graft_end);
+                    if let Some(inter) = inter_ {
+                        if inter > 0 {if allow_overlaps {to_merge = true} else {return None}}
+                    } 
                 }
                 if exon_start < thick_end {
                     // first (last) coding exon caught
@@ -682,11 +685,11 @@ impl BedEntry{
             // println!("blocks.len()={}, merged_blocks.len()={}", blocks.len(), merged_blocks.len());
             exon_sizes.clear();
             exon_starts.clear();
-            thin_start = min(thin_start, graft_start);
-            thin_end = max(thin_end, graft_end);
+            if !append_downstream {thin_start = min(thin_start, graft_start);}
+            if !append_upstream {thin_end = max(thin_end, graft_end);}
             if coding {
-                thick_start = min(thick_start, graft_start);
-                thick_end = max(thick_end, graft_end);
+                if !append_downstream {thick_start = min(thick_start, graft_start)};
+                if !append_upstream {thick_end = max(thick_end, graft_end)};
             }
             for i in 0..merged_blocks.len() {
                 let inter = &merged_blocks[i];
@@ -1029,6 +1032,30 @@ mod test_graft {
             false
         );
         println!("{:?}", c);
+        println!("{}", to_line(&tr, 12).unwrap());
+    }
+
+    #[test]
+    pub fn graft_problematic3() {
+        let mut tr = parse_bed(
+            String::from("scaffold_2	139357401	139357424	XM_047446749.1#LOC124907874#8205	0	+	139357401	139357424	255,50,50	1	23,	0,"),
+            12,
+            false
+        ).unwrap();
+        let graft1 = parse_bed(
+            String::from("scaffold_2\t139355934\t139357472\t1"),
+            4,
+            false
+        ).unwrap();
+        let _ = tr.graft(
+            graft1, 
+            true, 
+            true, 
+            true, 
+            false, 
+            true, 
+            false
+        );
         println!("{}", to_line(&tr, 12).unwrap());
     }
 }
