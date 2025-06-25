@@ -283,6 +283,10 @@ impl BedEntry{
         self.thin_start = Some(thin_start)
     }
 
+    pub fn update_thin_end(&mut self, thin_end: u64) {
+        self.thin_end = Some(thin_end)
+    }
+
     /// Returns the length sum for all the blocks
     /// 
     pub fn block_length(&self) -> u64 {
@@ -565,10 +569,15 @@ impl BedEntry{
             for i in 0..exon_sizes.len() {
                 let exon_start = thin_start + exon_starts[i];
                 let exon_end =  exon_start + exon_sizes[i];
-                if exon_start <= graft_start && graft_start <= exon_end {
-                    if allow_overlaps {to_merge = true} else {return None}
+                if !to_merge {
+                    let inter_ = intersection(exon_start, exon_end, graft_start, graft_end);
+                    if let Some(inter) = inter_ {
+                        if inter > 0 {if allow_overlaps {to_merge = true} else {return None}}
+                    } 
                 }
-                // println!("graft_len={}, graft_start={}, graft_end={}, exon_start={}, exon_end={}, thick_start={}, thick_end={}", graft_len, graft_start, graft_end, exon_start, exon_end, thick_start, thick_end);
+                // if exon_start <= graft_start && graft_start <= exon_end {
+                //     if allow_overlaps {to_merge = true} else {return None}
+                // }
                 if exon_end > thick_start && !grafted {
                     // check if exon has a non-coding fraction
                     if exon_start < thick_start {
@@ -579,9 +588,17 @@ impl BedEntry{
                         }
                     } else {
                         // just tilt the exon start and update its size
-                        exon_starts[i] = if i == 0 {0} else {
-                            min(graft_start, thick_start) - thin_start
-                        };
+                        if i == 0 {
+                            exon_starts[i] = 0
+                        } else {
+                            let new_exon_start = min(graft_start, thick_start);
+                            // safeguard against marginal cases: 
+                            if new_exon_start < thin_start {
+                                if to_merge {exon_starts[i] = 0} else {return None}
+                            } else {
+                                exon_starts[i] = new_exon_start - thin_start
+                            }
+                        }
                         exon_sizes[i] += exon_start - graft_start;
                         graft_len = exon_start - min(graft_start, exon_start)
                     }
@@ -644,8 +661,10 @@ impl BedEntry{
             //     return None;
             // };
             let mut blocks = self.to_blocks().unwrap();
-            // println!("blocks={:#?}", blocks);
-            blocks.push(BedEntry::from_interval(graft).unwrap());
+            let mut graft_interval = BedEntry::from_interval(graft).unwrap();
+            if append_upstream {graft_interval.update_thin_end(thick_start)}
+            if append_downstream {graft_interval.update_thin_start(thick_end)}
+            blocks.push(graft_interval);
             let unmerged_block_num = blocks.len();
             blocks.sort_by(
                 |a, b| if a.start().unwrap() == b.start().unwrap() {
@@ -656,7 +675,7 @@ impl BedEntry{
             );
             let merged_blocks = merge_multiple(&mut blocks);
             if merged_blocks.len() < unmerged_block_num as usize && !allow_overlaps {
-                // println!("Grafted interval overlaps some of the existing blocks. Consider setting allow overlap to allow merging blocks");
+                println!("Grafted interval overlaps some of the existing blocks. Consider setting allow overlap to allow merging blocks");
                 return None;
             }
             // println!("merged_blocks={:#?},\nmerged_blocks.len()={}", merged_blocks, merged_blocks.len());
@@ -956,6 +975,61 @@ mod test_graft {
             6,
             false
         );
+    }
+
+    #[test]
+    pub fn graft_problematic2() {
+        let mut tr = parse_bed(
+            String::from("scaffold_11	7448665	7449046	A	0	+	7448665	7449046	255,50,50	1	381,	0,"),
+            12,
+            false
+        ).unwrap();
+        let graft1 = parse_bed(
+            String::from("scaffold_11\t7448963\t7450881\t1"),
+            4,
+            false
+        ).unwrap();
+        let _ = tr.graft(
+            graft1, 
+            true, 
+            true, 
+            true, 
+            false, 
+            false, 
+            true
+        );
+        println!("{}", to_line(&tr, 12).unwrap());
+        let graft2 = parse_bed(
+            String::from("scaffold_11\t7447512\t7447616\t2"),
+            4,
+            false
+        ).unwrap();
+        let _ = tr.graft(
+            graft2,
+            true, 
+            true, 
+            true, 
+            false, 
+            false, 
+            false
+        );
+        println!("{}", to_line(&tr, 12).unwrap());
+        let graft3 = parse_bed(
+            String::from("scaffold_11\t7447257\t7448646\t3"), 
+            4, 
+            false
+        ).unwrap();
+        let c = tr.graft(
+            graft3,
+            true, 
+            true, 
+            true, 
+            false, 
+            true, 
+            false
+        );
+        println!("{:?}", c);
+        println!("{}", to_line(&tr, 12).unwrap());
     }
 }
 
