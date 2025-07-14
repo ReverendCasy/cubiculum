@@ -640,7 +640,9 @@ impl BedEntry{
                     // first (last) coding exon caught
                     if exon_end > thick_end {
                         if graft_end > thin_end {
-                            exon_sizes[i] += graft_end - max(thick_end, graft_start);
+                            exon_sizes[i] += graft_end - exon_end;//{if coding {exon_end} else {thick_end}};//max(thick_end, graft_start);
+                            // println!("UPD exon with UTRs: exon_sizes[i]={}", exon_sizes[i]);
+                            // println!("graft_end={}, thick_end={}, graft_start={}, max(thick_end, graft_start)={}", graft_end, thick_end, graft_start, max(thick_end, graft_start));
                         }
                     } else {
                         exon_sizes[i] += graft_end - thick_end;
@@ -1057,6 +1059,59 @@ mod test_graft {
             false
         );
         println!("{}", to_line(&tr, 12).unwrap());
+    }
+
+    #[test]
+    pub fn graft_problematic4() {
+        let mut tr = parse_bed(
+            String::from("scaffold_4028\t43383\t43841\tA\t0\t+\t43383\t43841\t255,50,50\t1\t458,\t0,"),
+            12,
+            false
+        ).unwrap();
+        let graft1 = parse_bed(
+            String::from("scaffold_4028\t42844\t44259\tB"),
+            4,
+            false
+        ).unwrap();
+        println!("graft1={:#?}", graft1);
+        let _ = tr.graft(
+            graft1,
+            true,
+            true,
+            true,
+            false,
+            false,
+            false
+        );
+        println!("{}", to_line(&tr, 12).unwrap());
+        let graft2 = parse_bed(
+            String::from("scaffold_4028\t44307\t44358\tC"), 4, false
+        ).unwrap();
+        let _ = tr.graft(
+            graft2, 
+            true, 
+            true, 
+            true, 
+            false, 
+            true, 
+            false);
+        println!("{}", to_line(&tr, 12).unwrap());
+        let graft3 = parse_bed(
+            String::from("scaffold_4028\t44408\t57055\tD"),
+            4,
+            true
+        ).unwrap();
+        let _ = tr.graft(
+            graft3,
+            true,
+            true,
+            true,
+            false,
+            false,
+            true
+        );
+        println!("{}", to_line(&tr, 12).unwrap());
+
     }
 }
 
