@@ -536,11 +536,11 @@ impl BedEntry{
             None => {panic!("CRITICAL: Exon starts are not defined for the BED12 object")}
         };
 
-        let graft_start = match graft.start() {
+        let mut graft_start = match graft.start() {
             Some(x) => {*x},
             None => {panic!("CRITICAL: Undefined start coordinate for a grafted interval")}
         };
-        let graft_end = match graft.end() {
+        let mut graft_end = match graft.end() {
             Some(x) => {*x},
             None => {panic!("CRITICAL: Undefined end coordinate for a grafted interval")}
         };
@@ -559,6 +559,7 @@ impl BedEntry{
                 return None;
             };
             // update the start coordinate(s)
+            graft_end = thick_start;
             let updated_start: bool = graft_start < thin_start;
             // thin_start = graft_start;
             if coding {thick_start = graft_start};
@@ -623,6 +624,7 @@ impl BedEntry{
                 return None;
             };
             // update the start coordinate(s)
+            graft_start = thick_end;
             if coding {thick_end = graft_end};
             // append the graft to the last block
             // for that, find the last coding block first
@@ -1112,6 +1114,66 @@ mod test_graft {
         );
         println!("{}", to_line(&tr, 12).unwrap());
 
+    }
+
+    #[test]
+    pub fn graft_problematic5() {
+        let mut tr = parse_bed(
+            String::from("HiC_scaffold_17\t67653756\t67653870\tXM_059874414#LOC132342188#8\t0\t-\t67653756\t67653870\t255,50,50\t1\t114,\t0,"),
+            12,
+            true
+        ).unwrap();
+
+        let graft1 = parse_bed(
+            String::from("HiC_scaffold_17\t67654085\t67654762\t0"), 
+            4, 
+            false
+        ).unwrap();
+        let graft2 = parse_bed(
+            String::from("HiC_scaffold_17\t67653962\t67654012\t1"), 
+            4, 
+            false,
+        ).unwrap();
+        let graft3 = parse_bed(
+            String::from("HiC_scaffold_17\t67653727\t67653756\t2"), 
+            4, 
+            false
+        ).unwrap();
+
+        let _ = tr.graft(
+            graft2,
+            true,
+            true,
+            true,
+            false,
+            false,
+            false
+        );
+
+        println!("{}", to_line(&tr, 12).unwrap());
+
+        let _ = tr.graft(
+            graft1,
+            true,
+            true,
+            true,
+            false,
+            false,
+            true
+        );
+        println!("{}", to_line(&tr, 12).unwrap());
+
+
+        let _ = tr.graft(
+            graft3,
+            true,
+            true,
+            true,
+            false,
+            true,
+            false
+        );
+        println!("{}", to_line(&tr, 12).unwrap());
     }
 }
 
