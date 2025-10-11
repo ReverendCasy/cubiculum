@@ -521,6 +521,7 @@ impl BedEntry{
             Some(x) => {x},
             None => {panic!("CRITICAL: Undefined thickEnd value for BED12")}
         };
+        let self_is_coding: bool = thick_end - thick_start > 1;
         
         let mut exon_num = match self.exon_num {
             Some(x) => {x},
@@ -545,6 +546,14 @@ impl BedEntry{
             None => {panic!("CRITICAL: Undefined end coordinate for a grafted interval")}
         };
         let mut graft_len = graft.length().unwrap();
+
+        // safeguard against inadvertent merge between coding and non-coding blocks
+        if !coding && self_is_coding {
+            if graft_start <= thick_start && graft_end >= thick_end {
+                println!("Cannot graft non-coding block spanning over the whole coding sequence");
+                return None
+            }
+        }
 
         // keep track on whether the final block should be merged
         let mut to_merge = false;
@@ -669,8 +678,18 @@ impl BedEntry{
             // };
             let mut blocks = self.to_blocks().unwrap();
             let mut graft_interval = BedEntry::from_interval(graft).unwrap();
+            // update the boundaries to facilitate proper merging
             if append_upstream {graft_interval.update_thin_end(thick_start)}
             if append_downstream {graft_interval.update_thin_start(thick_end)}
+            // safeguard against inadvertent merge between coding and non-coding blocks
+            if !coding && self_is_coding {
+                if graft_interval.thin_start().unwrap() <= thick_start {
+                    graft_interval.update_thin_end(min(thick_start, graft_interval.thin_end().unwrap()));
+                }
+                if graft_interval.thin_end().unwrap() >= thick_end {
+                    graft_interval.update_thin_start(max(thick_end, graft_interval.thin_start().unwrap()));
+                }
+            }
             blocks.push(graft_interval);
             let unmerged_block_num = blocks.len();
             blocks.sort_by(
