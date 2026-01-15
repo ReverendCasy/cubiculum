@@ -728,7 +728,7 @@ impl BedEntry{
             self.thin_start = Some(thin_start);
             self.thin_end = Some(thin_end);
             self.thick_start = Some(thick_start);
-            self.thick_start = Some(thick_start);
+            self.thick_end = Some(thick_end);
             self.exon_num = Some(exon_num as u16);
             self.exon_sizes = Some(exon_sizes);
             self.exon_starts = Some(exon_starts);
@@ -1193,6 +1193,30 @@ mod test_graft {
             false
         );
         println!("{}", to_line(&tr, 12).unwrap());
+    }
+
+    #[test]
+    pub fn graft_coding() {
+        let mut recipient = parse_bed(
+            String::from("chr11\t98551273\t98551322\tENST00000584588.5#ZPBP2#21\t1\t+\t98551273\t98551322\t0,0,0\t1\t49,\t0,"),
+            12,
+            true
+        ).unwrap();
+        let graft = parse_bed(
+            String::from("chr11\t98551442\t98551508\tENST00000584588.5#ZPBP2#21\t2\t+"),
+            6,
+            true
+        ).unwrap();
+        let _ = recipient.graft(
+            graft,
+            true,
+            true,
+            true,
+            true,
+            false,
+            false
+        );
+        println!("{}", to_line(&recipient, 12).unwrap());
     }
 }
 
