@@ -1,4 +1,5 @@
-use fxhash::FxHashMap;
+use anyhow::Error;
+use fxhash::{FxHashMap, FxHashSet};
 use num_traits::CheckedSub;
 use std::cmp::{Ord, PartialOrd, min, max};
 use std::ops::Sub;
@@ -30,7 +31,7 @@ use crate::structs::structs::{Coordinates,  Interval, Named};
 pub fn intersection<T>(
     start1: T, end1: T, start2: T, end2: T
 ) -> Option<T> 
-where T: Ord + PartialOrd + Sub<Output = T> + CheckedSub<Output = T>//<T: cmp::PartialOrd + ops::Sub<Output = T>>
+where T: Ord + PartialOrd + Sub<Output = T> + CheckedSub<Output = T>
 {
     
     let min_end: T = min(end1, end2); //if end1 > end2 { end2 } else { end1 };
@@ -38,6 +39,50 @@ where T: Ord + PartialOrd + Sub<Output = T> + CheckedSub<Output = T>//<T: cmp::P
     min_end.checked_sub(&max_start)
 }
 
+/// ALPHA: Split interval into two by given gap coordinates
+/// # Arguments
+/// `block` - an interval object with defined coordinates (BedEntry, Interval, etc.)
+/// `split_start` - start of the split interval 
+/// `split_end` - end of the split interval
+/// 
+/// # Returns
+/// A Vector of two value - left and right subintervals
+/// 
+/// # Example
+/// ```
+/// use cubiculum;
+/// let a = Interval::from(None, Some(10), Some(20), None);
+/// let split_start: u64 = 14;
+/// let split_end: u64 = 16;
+/// let subs = split_by_interval(a, split_start, split_end);
+/// assert_eq!(subs.len(), 2);
+/// assert_eq!(subs[0], Interval::from(None, Some(10), Some(14), None));
+/// assert_eq!(subs[1], Interval::from(None, Some(16), Some(20), None));
+/// ```
+pub fn split_by_interval<T>(block: T, split_start: u64, split_end: u64) -> Vec<Interval>//Result<Vec<Interval>, Error>
+where
+    T: Coordinates {
+    // 
+    // let chrom = block.chrom().expect("No chromosome value recorded for the interval");
+    let block_start = block.start().expect("No start value recorded for block start");
+    let block_end = block.end().expect("No start value recorded for block end");
+    let left = Interval::from(
+        // Some(chrom.clone()),
+        None, 
+        Some(*block_start), 
+        Some(split_start), 
+        None,
+    );
+    let right = Interval::from(
+        // Some(chrom.clone()),
+        None,
+        Some(split_end),
+        Some(*block_end),
+        None,
+    );
+    vec![left, right]
+    // Ok(vec![left, right])s
+}
 
 /// Merge two Coordinates objects into a single Interval object 
 /// 
@@ -382,15 +427,123 @@ mod discretizer_test{
             Interval::from(Some(String::from("chr9")), Some(113049361), Some(113049496), Some(String::from("NM_001282518.2#ZFP37_2"))),
             Interval::from(Some(String::from("chr9")), Some(113049790), Some(113049875), Some(String::from("NM_001282518.2#ZFP37_3"))),
             Interval::from(Some(String::from("chr9")), Some(113056556), Some(113056688), Some(String::from("NM_001282518.2#ZFP37_4"))),
-            // Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three"))),
-            // Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three"))),
-            // Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three"))),
-            // Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three"))),
-            // Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three"))),
-            // Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three"))),
         ];
         let (vec, map) = discrete_interval_map(&mut input);
         println!("{:#?}", vec);
         println!("{:#?}", map);
+    }
+}
+
+
+/// Given a Vector of Interval-like objects, 
+/// returns a Vector of sorted unique intervals from the input collection
+/// and interval mapping to names from the original collections
+/// 
+/// # Arguments
+/// `intervals`: 
+pub fn unique_interval_map<T>(intervals: &mut Vec<T>) -> (Vec<Interval>, FxHashMap<String, Vec<&str>>) 
+where T: Coordinates + Named {
+    let mut interval_vec: Vec<Interval> = Vec::new();
+    let mut out_map: FxHashMap<String, Vec<&str>> = FxHashMap::default();
+    let mut coord2name: FxHashMap<(&u64, &u64), String> = FxHashMap::default();
+
+    // sort the input intervals
+    intervals.sort_by(
+        |a, b| if a.start().unwrap() == b.start().unwrap() {
+            a.end().unwrap().cmp(&b.end().unwrap())
+        } else {
+            a.start().unwrap().cmp(&b.start().unwrap())
+        }
+    );
+
+    // create a coordinate set to keep track of the already encountered coordinates
+
+    let mut _counter: u16 = 1;
+    for el in intervals {
+        let name = el
+            .name()
+            .expect("Unnamed interval encountered in `unique_interval_map()`");
+        let chrom = el
+            .chrom()
+            .expect(
+                &format!("Interval {} has no defined chromosome", name)
+        ); // do we really need this one?
+        let start = el
+            .start()
+            .expect(
+                &format!("Interval {} has no defined start coordinate", name)
+        );
+        let end = el
+            .end()
+            .expect(
+                &format!("Interval {} has no defined end coordinate", name)
+        );
+        let coords = (start, end);
+        if coord2name.contains_key(&coords) {
+            // add the current interval's name to the map
+            let new_inter_name = coord2name.get(&coords).unwrap();
+            out_map
+                .entry(new_inter_name.clone())
+                .and_modify(|x| x.insert(x.len(), name));
+        } else {
+            // create a new interval
+            let new_inter_name = format!("interval_{}", _counter);
+            let new_inter = Interval::from(
+                Some(chrom.clone()), 
+                Some(*start), 
+                Some(*end),
+                Some(new_inter_name.clone())
+            );
+            interval_vec.insert(interval_vec.len(), new_inter);
+            out_map.insert(new_inter_name.clone(), vec![name]);
+            coord2name.insert((start, end), new_inter_name);
+            _counter += 1;
+        }
+
+    }
+
+    interval_vec.sort_by(
+        |a, b| {
+            if (a.start().unwrap() == b.start().unwrap()) {
+                a.end().unwrap().cmp(b.end().unwrap())
+            } else {
+                a.start().unwrap().cmp(b.end().unwrap())
+            }
+        }
+    );
+
+    (interval_vec, out_map)
+}
+
+#[cfg(test)]
+mod unique_interval_map_test {
+    use fxhash::FxHashMap;
+    use super::*;
+
+    #[test]
+    fn test1(){
+        let mut input: Vec<Interval> = vec![
+            Interval::from(Some(String::from("chr1")), Some(100), Some(200), Some(String::from("one"))),
+            Interval::from(Some(String::from("chr1")), Some(100), Some(200), Some(String::from("two"))),
+            Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("three")))
+        ];
+        let (vec, map) =unique_interval_map(&mut input);
+        println!("{:#?}", vec);
+        println!("{:#?}", map);
+        let vec_to_compare = vec![
+            Interval::from(Some(String::from("chr1")), Some(100), Some(200), Some(String::from("interval_1"))),
+            Interval::from(Some(String::from("chr1")), Some(230), Some(250), Some(String::from("interval_2")))
+        ];
+        assert_eq!(
+            vec, 
+            vec_to_compare,
+        );
+        let mut map_to_compare: FxHashMap<String, Vec<&str>> = FxHashMap::default();
+        map_to_compare.insert(String::from("interval_1"), vec!["one", "two"]);
+        map_to_compare.insert(String::from("interval_2"), vec!["three"]);
+        assert_eq!(
+            map,
+            map_to_compare,
+        )
     }
 }
