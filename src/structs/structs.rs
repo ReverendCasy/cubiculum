@@ -1,11 +1,11 @@
 use std::cmp::{min, max};
 
 use crate::extract::extract::{parse_bed, to_line};
-use crate::merge::merge::{intersection, merge_multiple};
+use crate::merge::merge::{intersection, merge_multiple, split_by_interval};
 
 /// Contains data on storage structures for annotation manipulations in Cubiculum and associated packages
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Interval {
     chrom: Option<String>,
     start: Option<u64>,
@@ -585,9 +585,6 @@ impl BedEntry{
                         if inter > 0 {if allow_overlaps {to_merge = true} else {return None}}
                     } 
                 }
-                // if exon_start <= graft_start && graft_start <= exon_end {
-                //     if allow_overlaps {to_merge = true} else {return None}
-                // }
                 if exon_end > thick_start && !grafted {
                     // check if exon has a non-coding fraction
                     if exon_start < thick_start {
@@ -668,14 +665,6 @@ impl BedEntry{
             to_merge = true
         }
         if to_merge{
-            // if graft_start > thin_start {
-            //     println!("Graft start coordinate lies within the coding sequence");
-            //     return None;
-            // };
-            // if graft_end < thin_end {
-            //     println!("Graft end coordinate lies within the coding sequence");
-            //     return None;
-            // };
             let mut blocks = self.to_blocks().unwrap();
             let mut graft_interval = BedEntry::from_interval(graft).unwrap();
             // update the boundaries to facilitate proper merging
@@ -704,8 +693,6 @@ impl BedEntry{
                 println!("Grafted interval overlaps some of the existing blocks. Consider setting allow overlap to allow merging blocks");
                 return None;
             }
-            // println!("merged_blocks={:#?},\nmerged_blocks.len()={}", merged_blocks, merged_blocks.len());
-            // println!("blocks.len()={}, merged_blocks.len()={}", blocks.len(), merged_blocks.len());
             exon_sizes.clear();
             exon_starts.clear();
             if !append_downstream {thin_start = min(thin_start, graft_start);}
@@ -750,6 +737,66 @@ impl BedEntry{
         grafted_bed.exon_starts = Some(exon_starts);
         Some(grafted_bed)
     }
+
+    pub fn introduce_intron<T>(&mut self, interval: T, inplace: bool) -> Option<BedEntry> 
+    where T: Coordinates {
+        let thin_start = self.thin_start().unwrap();
+        let thin_end = self.thin_end().unwrap();
+        let intron_start = interval.start().expect("CRITICAL: start undefined for splitting interval");
+        let intron_end = interval.end().expect("CRITICAL: start undefined for splitting interval");
+        let mut block_sizes: Vec<u64> = Vec::new();
+        let mut block_starts: Vec<u64> = Vec::new();
+        for (i, block) in self.to_blocks().unwrap().iter().enumerate() {
+            let block_start = block.start().unwrap();
+            let block_end = block.end().unwrap();
+            let block_size = block_end - block_start;
+            // let inter = intersection(
+            //     *block_start, 
+            //     *block_end,
+            //     *intron_start,
+            //     *intron_end,
+            // ).expect("CRITICAL: Undefined intersection size");
+            // if inter <= 0 {
+            //     block_sizes.push(block_size);
+            //     block_starts.push(block_start - thin_start);
+            //     continue
+            // }
+            if !(intron_start > block_start && intron_end < block_end) {
+                block_sizes.push(block_size);
+                block_starts.push(block_start - thin_start);
+                continue
+            }
+            for _block in split_by_interval(
+                block, *intron_start, *intron_end
+            ) {
+                let _block_start = _block.start().unwrap();
+                let _block_end = _block.end().unwrap();
+                block_sizes.push(_block_end - _block_start);
+                block_starts.push(_block_start - thin_start);
+            }
+        }
+        if inplace {
+            self.exon_num = Some(block_sizes.len() as u16);
+            self.exon_sizes = Some(block_sizes);
+            self.exon_starts = Some(block_starts);
+            return None;
+        };
+        let mut grafted_bed = BedEntry::empty();
+        grafted_bed.format = Some(12);
+        grafted_bed.chrom = self.chrom.clone();
+        grafted_bed.thin_start = Some(thin_start);
+        grafted_bed.thin_end = Some(thin_end);
+        grafted_bed.name = self.name.clone();
+        grafted_bed.score = self.score.clone();
+        grafted_bed.strand = self.strand;
+        grafted_bed.thick_start = self.thick_start;
+        grafted_bed.thick_end = self.thick_end;
+        grafted_bed.rgb = self.rgb.clone();
+        grafted_bed.exon_num = Some(block_sizes.len() as u16);
+        grafted_bed.exon_sizes = Some(block_sizes);
+        grafted_bed.exon_starts = Some(block_starts);
+        Some(grafted_bed)
+    }
 }
 
 #[cfg(test)]
@@ -758,20 +805,6 @@ mod test_graft {
 
     #[test]
     fn test_graft_upstream(){
-        // let input = BedEntry::bed12(
-        //     String::from("chr1"),
-        //     53298978,
-        //     53308962,
-        //     String::from("XM_047446425.1#ORMDL1#78"),
-        //     String::from("0"),
-        //     true,
-        //     53298978,
-        //     53308962,
-        //     String::from("0,0,100"),
-        //     3,
-        //     vec![174,152,136,],
-        //     vec![0,6476,9848,]
-        // );
         let mut input = parse_bed(
             String::from("chr1	53298978	53308962	XM_047446425.1#ORMDL1#78	0	+	53298978	53308962	0,0,100	3	174,152,136,	0,6476,9848,"),
             12,
